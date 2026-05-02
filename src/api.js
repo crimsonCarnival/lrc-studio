@@ -154,6 +154,16 @@ export const projects = {
       method: 'DELETE',
     });
   },
+
+  async getShare(projectId) {
+    return request(`/projects/share/${encodeURIComponent(projectId)}`);
+  },
+
+  async clone(projectId) {
+    return request(`/projects/clone/${encodeURIComponent(projectId)}`, {
+      method: 'POST',
+    });
+  },
 };
 
 // ——— Lyrics (parse/compile) — falls back to local utils when server is unreachable ———
@@ -328,6 +338,10 @@ export const uploads = {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  },
+
+  async getMedia(id) {
+    return request(`/uploads/media/${encodeURIComponent(id)}`);
   },
 
   async deleteMedia(id) {
