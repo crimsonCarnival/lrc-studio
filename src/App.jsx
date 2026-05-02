@@ -26,7 +26,7 @@ import {
   PopoverTrigger,
 } from './components/ui/popover';
 import { Tip } from './components/ui/tip';
-import { Music2, UploadCloud, Globe, Settings as SettingsIcon, Eye, EyeOff, Lock, LockOpen, LayoutList, User, LogOut, BookOpen, Pencil, Share2 } from 'lucide-react';
+import { Music2, UploadCloud, Globe, Settings as SettingsIcon, Eye, EyeOff, Lock, LockOpen, LayoutList, User, LogOut, BookOpen, Pencil, Share2, Loader2 } from 'lucide-react';
 import { useScrollLock } from './hooks/useScrollLock';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 
