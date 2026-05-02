@@ -10,6 +10,7 @@ const Library = lazy(() => import('./components/Library/Library'));
 const UploadsLibrary = lazy(() => import('./components/Library/UploadsLibrary'));
 const UploadDetailView = lazy(() => import('./components/Library/UploadDetailView'));
 const SetupScreen = lazy(() => import('./components/Setup/SetupScreen'));
+const Home = lazy(() => import('./components/Home/Home'));
 import ProjectSetupModal from './components/Setup/ProjectSetupModal';
 import { useAppState } from './hooks/useAppState';
 import { useSettings } from './contexts/useSettings';
@@ -142,16 +143,7 @@ function AppInner() {
     }
   }, [location.pathname, mediaTitle, projectMetadata, t]);
 
-  // Sync active project to URL and handle root redirect
-  useEffect(() => {
-    if (location.pathname === '/') {
-      if (activeProjectId) {
-        navigate(`/project/${activeProjectId}${location.search}`, { replace: true });
-      } else {
-        navigate(`/project/new${location.search}`, { replace: true });
-      }
-    }
-  }, [activeProjectId, navigate, location.pathname, location.search]);
+  // Root redirect handled by react-router <Navigate>
 
   // Pause player when navigating away from the project page
   useEffect(() => {
@@ -603,8 +595,17 @@ function AppInner() {
               </div>
             </EditorContainer>
           } />
-          <Route index element={<Navigate to="/project/new" replace />} />
-          <Route path="*" element={<Navigate to="/project/new" replace />} />
+          <Route path="home" element={
+            <Suspense fallback={
+              <div className="flex-1 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              </div>
+            }>
+              <Home />
+            </Suspense>
+          } />
+          <Route index element={<Navigate to="/home" replace />} />
+          <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
       </div>
 
@@ -623,7 +624,7 @@ function AppInner() {
               // 1. We are in the initial setup screen
               // 2. The current title is empty or "Untitled"
               const isSetupPhase = location.pathname === '/project/new';
-              if (isSetupPhase || !mediaTitle || mediaTitle === t('project.untitled')) {
+              if (isSetupPhase || !mediaTitle || mediaTitle === t('library.untitled') || mediaTitle === 'Untitled') {
                 setMediaTitle(newTitle);
               }
             }}
