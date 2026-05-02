@@ -618,7 +618,15 @@ function AppInner() {
           <Player
             ref={playerRef}
             mediaTitle={mediaTitle}
-            onTitleChange={setMediaTitle}
+            onTitleChange={(newTitle) => {
+              // Only auto-update the project title from media metadata if:
+              // 1. We are in the initial setup screen
+              // 2. The current title is empty or "Untitled"
+              const isSetupPhase = location.pathname === '/project/new';
+              if (isSetupPhase || !mediaTitle || mediaTitle === t('project.untitled')) {
+                setMediaTitle(newTitle);
+              }
+            }}
             onTimeUpdate={handleTimeUpdate}
             onDurationChange={handleDurationChange}
             onMediaChange={handleMediaChange}
