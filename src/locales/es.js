@@ -1,8 +1,7 @@
 export default {
   "translation": {
     "app": {
-      "name": "LRC Syncer",
-      "footer": "Lyrics Syncer — Se ejecuta íntegramente en el navegador. Ningún dato sale de tu dispositivo.",
+      "name": "Syncify",
       "shareProject": "Compartir",
       "focusMode": {
         "default": "Normal",
@@ -178,7 +177,15 @@ export default {
       "createFailed": "Error al crear la sesión",
       "readOnly": "Solo lectura",
       "readOnlyDesc": "Esta es una sesión de solo lectura. No se guardarán cambios.",
-      "editCopy": "Editar tu copia"
+      "editCopy": "Editar tu copia",
+      "cloneSuccess": "¡Proyecto copiado con éxito!",
+      "cloneFailed": "Error al copiar el proyecto",
+      "notFoundTitle": "Proyecto no encontrado",
+      "notFoundDesc": "El proyecto compartido que buscas no existe o ha caducado.",
+      "forbiddenTitle": "Acceso denegado",
+      "forbiddenDesc": "No tienes permiso para ver este proyecto.",
+      "errorTitle": "Error al cargar el proyecto",
+      "errorDesc": "Se produjo un error inesperado al intentar cargar el proyecto."
     },
 
     "auth": {
@@ -252,7 +259,12 @@ export default {
       "readOnly": "No — solo lectura",
       "allowEditing": "Sí — permitir edición",
       "copy": "Copiar enlace",
-      "copied": "¡Copiado!"
+      "copied": "¡Copiado!",
+      "likeThisProject": "¿Te gusta este proyecto?",
+      "createCopyDesc": "Crea tu propia copia editable y personalízala",
+      "copyLink": "Copiar enlace",
+      "creating": "Creando...",
+      "createCopy": "Crear copia"
     },
 
     "network": {
@@ -278,7 +290,8 @@ export default {
       "apply": "Aplicar",
       "copied": "¡Copiado!",
       "saved": "¡Guardado!",
-      "global": "Global"
+      "global": "Global",
+      "goHome": "Ir al inicio"
     },
 
     "shortcuts": {
@@ -350,6 +363,8 @@ export default {
         "disconnect": "Desconectar",
         "connected": "Conectado",
         "notConnected": "No conectado",
+        "connectAccount": "Conectar cuenta de Spotify",
+        "connectToAccess": "Conecta Spotify para acceder a tu biblioteca y listas de reproducción",
         "premium": "Premium",
         "free": "Cuenta gratuita",
         "premiumRequired": "Se requiere Spotify Premium para reproducir en la app",

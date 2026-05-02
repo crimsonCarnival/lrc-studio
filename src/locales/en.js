@@ -1,8 +1,7 @@
 export default {
   "translation": {
     "app": {
-      "name": "LRC Syncer",
-      "footer": "Lyrics Syncer — Runs entirely in your browser. No data leaves your device.",
+      "name": "Syncify",
       "shareProject": "Share",
       "focusMode": {
         "default": "Default",
@@ -178,7 +177,15 @@ export default {
       "createFailed": "Failed to create project",
       "readOnly": "Read only",
       "readOnlyDesc": "This is a view-only project. No edits will be saved.",
-      "editCopy": "Edit your copy"
+      "editCopy": "Edit your copy",
+      "cloneSuccess": "Project copied successfully!",
+      "cloneFailed": "Failed to copy project",
+      "notFoundTitle": "Project Not Found",
+      "notFoundDesc": "The shared project you are looking for does not exist or has expired.",
+      "forbiddenTitle": "Access Denied",
+      "forbiddenDesc": "You do not have permission to view this project.",
+      "errorTitle": "Error Loading Project",
+      "errorDesc": "An unexpected error occurred while trying to load the project."
     },
 
     "auth": {
@@ -252,7 +259,12 @@ export default {
       "readOnly": "No — read-only",
       "allowEditing": "Yes — allow editing",
       "copy": "Copy link",
-      "copied": "Copied!"
+      "copied": "Copied!",
+      "likeThisProject": "Like this project?",
+      "createCopyDesc": "Create your own editable copy and customize it",
+      "copyLink": "Copy Link",
+      "creating": "Creating...",
+      "createCopy": "Create Copy"
     },
 
     "network": {
@@ -278,7 +290,8 @@ export default {
       "apply": "Apply",
       "copied": "Copied!",
       "saved": "Saved!",
-      "global": "Global"
+      "global": "Global",
+      "goHome": "Go to Homepage"
     },
 
     "shortcuts": {
@@ -348,6 +361,8 @@ export default {
         "label": "Spotify",
         "connect": "Connect Spotify",
         "disconnect": "Disconnect",
+        "connectAccount": "Connect Spotify Account",
+        "connectToAccess": "Connect Spotify to access your library and playlists",
         "connected": "Connected",
         "notConnected": "Not connected",
         "premium": "Premium",
