@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useCallback, useState } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 import Player from './components/Player';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { SkeletonList, SkeletonEditor, SkeletonPreview, SkeletonSetup } from './components/ui/skeleton';
@@ -7,6 +8,7 @@ const Editor = lazy(() => import('./components/Editor'));
 const Preview = lazy(() => import('./components/Preview'));
 const Library = lazy(() => import('./components/Library/Library'));
 const UploadsLibrary = lazy(() => import('./components/Library/UploadsLibrary'));
+const UploadDetailView = lazy(() => import('./components/Library/UploadDetailView'));
 const SetupScreen = lazy(() => import('./components/Setup/SetupScreen'));
 import ProjectSetupModal from './components/Setup/ProjectSetupModal';
 import { useAppState } from './hooks/useAppState';
@@ -30,7 +32,22 @@ import { useNetworkStatus } from './hooks/useNetworkStatus';
 const Settings = lazy(() => import('./components/Settings'));
 const KeyboardHelp = lazy(() => import('./components/shared/KeyboardHelp'));
 
+function EditorContainer({ loadProject, activeProjectId, children }) {
+  const { id } = useParams();
+
+  useEffect(() => {
+    if (id && id !== 'new' && id !== 'local' && id !== activeProjectId) {
+      loadProject(id);
+    }
+  }, [id, loadProject, activeProjectId]);
+
+  return children;
+}
+
 function AppInner() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const {
     t,
     i18n,
@@ -99,38 +116,53 @@ function AppInner() {
   // Normalize: if old 'preview' mode was saved, fall back to 'default'
   const focusMode = ['default', 'sync', 'playback'].includes(rawFocusMode) ? rawFocusMode : 'default';
   const [hideEditor, setHideEditor] = useState(false);
-  const [showLibrary, setShowLibrary] = useState(false);
-  const [showUploads, setShowUploads] = useState(false);
 
-  // ── Setup flow state ──
-  // 'setup' = initial screen (upload audio + paste lyrics)
-  // 'naming' = project details modal open
-  // 'ready' = full editor layout
-  const [setupPhase, setSetupPhase] = useState(() => {
-    // Skip setup if we have an existing project or lines
-    if (activeProjectId) return 'ready';
-    return 'setup';
-  });
+  const isReady = location.pathname.startsWith('/project/') && location.pathname !== '/project/new';
+
+  // SEO Optimization & dynamic title
+  useEffect(() => {
+    let title = t('app.name') || 'Syncify';
+    let description = 'Syncify is a powerful tool to synchronize lyrics with audio tracks and create engaging music videos.';
+
+    if (isReady && mediaTitle) {
+      title = `${mediaTitle} - ${t('app.name')}`;
+      if (projectMetadata?.description) {
+        description = projectMetadata.description;
+      } else {
+        description = `Editor session for ${mediaTitle}`;
+      }
+    } else if (location.pathname.startsWith('/uploads')) {
+      title = `Uploads - ${t('app.name')}`;
+    }
+
+    document.title = title;
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) {
+      metaDesc.setAttribute('content', description);
+    }
+  }, [location.pathname, mediaTitle, projectMetadata, t]);
+
+  // Sync active project to URL and handle root redirect
+  useEffect(() => {
+    if (location.pathname === '/') {
+      if (activeProjectId) {
+        navigate(`/project/${activeProjectId}${location.search}`, { replace: true });
+      } else {
+        navigate(`/project/new${location.search}`, { replace: true });
+      }
+    }
+  }, [activeProjectId, navigate, location.pathname, location.search]);
+
+  const [showNamingModal, setShowNamingModal] = useState(false);
   const [projectName, setProjectName] = useState('');
   const [projectCoverUrl, setProjectCoverUrl] = useState('');
   const [_projectCoverPublicId, setProjectCoverPublicId] = useState('');
   const [pendingSetupData, setPendingSetupData] = useState(null);
   const [editingProjectName, setEditingProjectName] = useState(false);
 
-  // Auto-transition to ready when restoring a project (reload, library, shared URL)
-  // NOTE: hasMedia intentionally excluded — uploading audio during setup should NOT skip the flow
-  if (setupPhase !== 'ready' && (lines.length > 0 || activeProjectId)) {
-    setSetupPhase('ready');
-  }
-
-  // Reset to setup if project was invalidated (e.g. stale ID after DB drop)
-  if (setupPhase === 'ready' && !activeProjectId && lines.length === 0 && !hasMedia) {
-    setSetupPhase('setup');
-  }
-
   const handleSetupComplete = useCallback(({ lines: newLines, editorMode: newMode }) => {
     setPendingSetupData({ lines: newLines, editorMode: newMode });
-    setSetupPhase('naming');
+    setShowNamingModal(true);
   }, []);
 
   const handleProjectConfirm = useCallback(({ name, description, tags, coverUrl, coverPublicId }) => {
@@ -143,9 +175,11 @@ function AppInner() {
     setProjectMetadata({ description: description || '', tags: tags || [] });
     setProjectCoverUrl(coverUrl || '');
     setProjectCoverPublicId(coverPublicId || '');
-    setSetupPhase('ready');
+    setShowNamingModal(false);
     setPendingSetupData(null);
-  }, [pendingSetupData, setLines, setEditorMode, setSyncMode, mediaTitle, setProjectMetadata]);
+    triggerImportSave();
+    if (!activeProjectId) navigate('/project/local');
+  }, [pendingSetupData, setLines, setEditorMode, setSyncMode, mediaTitle, setProjectMetadata, navigate, activeProjectId, triggerImportSave]);
 
   // Reset hideEditor when all lines are removed
   if (lines.length === 0 && hideEditor) {
@@ -227,13 +261,13 @@ function AppInner() {
             <h1 className="text-base sm:text-lg font-bold text-zinc-100 tracking-tight truncate shrink-0">
               {t('app.name')}
             </h1>
-            {setupPhase === 'ready' && (
+            {isReady && (
               <>
                 <span className="text-zinc-600 shrink-0">/</span>
                 {projectCoverUrl && (
-                  <img 
-                    src={projectCoverUrl} 
-                    alt="Cover" 
+                  <img
+                    src={projectCoverUrl}
+                    alt="Cover"
                     className="w-6 h-6 sm:w-7 sm:h-7 rounded object-cover border border-zinc-700 shrink-0"
                   />
                 )}
@@ -266,62 +300,71 @@ function AppInner() {
 
         <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           {/* Hide Editor Toggle — desktop only, hidden during setup */}
-          {setupPhase === 'ready' && (
-          <Tip content={`${t('app.hideEditor')} (Ctrl+2)`}>
-          <Button
-            variant="outline"
-            aria-label={t('app.hideEditor')}
-            onClick={() => {
-              if (focusMode === 'playback') {
-                setFocusMode('default');
-                setHideEditor(false);
-              } else {
-                setHideEditor(h => !h);
-              }
-            }}
-            className={`${lines.length === 0 ? '!hidden' : 'hidden lg:flex'} px-2 py-1.5 h-auto text-[10px] font-bold border rounded-lg gap-1 flex-shrink-0 transition-colors ${
-              (hideEditor || focusMode === 'playback')
-                ? 'bg-primary text-zinc-950 border-primary hover:bg-primary/90 hover:text-zinc-950'
-                : 'bg-zinc-800/80 border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700'
-            }`}
-          >
-            {(hideEditor || focusMode === 'playback') ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-          </Button>
-          </Tip>
+          {isReady && (
+            <Tip content={`${t('app.hideEditor')} (Ctrl+2)`}>
+              <Button
+                variant="outline"
+                aria-label={t('app.hideEditor')}
+                onClick={() => {
+                  if (focusMode === 'playback') {
+                    setFocusMode('default');
+                    setHideEditor(false);
+                  } else {
+                    setHideEditor(h => !h);
+                  }
+                }}
+                className={`${lines.length === 0 ? '!hidden' : 'hidden lg:flex'} px-2 py-1.5 h-auto text-[10px] font-bold border rounded-lg gap-1 flex-shrink-0 transition-colors ${(hideEditor || focusMode === 'playback')
+                  ? 'bg-primary text-zinc-950 border-primary hover:bg-primary/90 hover:text-zinc-950'
+                  : 'bg-zinc-800/80 border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700'
+                  }`}
+              >
+                {(hideEditor || focusMode === 'playback') ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+              </Button>
+            </Tip>
           )}
 
           {/* Library button */}
-          {setupPhase === 'ready' && (
-          <Tip content={t('library.title')}>
-          <Button
-            variant="outline"
-            aria-label={t('library.title')}
-            onClick={() => { setShowLibrary(prev => !prev); setShowUploads(false); }}
-            className={`px-2 sm:px-3 h-8 sm:h-9 rounded-lg sm:rounded-xl flex-shrink-0 transition-colors ${
-              showLibrary
-                ? 'bg-primary text-zinc-950 border-primary hover:bg-primary/90 hover:text-zinc-950'
-                : 'bg-zinc-800/80 border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700'
-            }`}
-          >
-            <BookOpen className="w-4 sm:w-[18px] h-4 sm:h-[18px]" strokeWidth={1.8} />
-          </Button>
-          </Tip>
+          {isReady && (
+            <Tip content={t('library.title')}>
+              <Button
+                variant="outline"
+                aria-label={t('library.title')}
+                onClick={() => {
+                  if (location.pathname.startsWith('/library')) {
+                    navigate(activeProjectId ? `/project/${activeProjectId}` : '/project/new');
+                  } else {
+                    navigate('/library');
+                  }
+                }}
+                className={`px-2 sm:px-3 h-8 sm:h-9 rounded-lg sm:rounded-xl flex-shrink-0 transition-colors ${location.pathname.startsWith('/library')
+                  ? 'bg-primary text-zinc-950 border-primary hover:bg-primary/90 hover:text-zinc-950'
+                  : 'bg-zinc-800/80 border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700'
+                  }`}
+              >
+                <BookOpen className="w-4 sm:w-[18px] h-4 sm:h-[18px]" strokeWidth={1.8} />
+              </Button>
+            </Tip>
           )}
 
           {/* Uploads button — always visible so users can manage files before/during setup */}
           <Tip content={t('uploads.title')}>
-          <Button
-            variant="outline"
-            aria-label={t('uploads.title')}
-            onClick={() => { setShowUploads(prev => !prev); setShowLibrary(false); }}
-            className={`px-2 sm:px-3 h-8 sm:h-9 rounded-lg sm:rounded-xl flex-shrink-0 transition-colors ${
-              showUploads
+            <Button
+              variant="outline"
+              aria-label={t('uploads.title')}
+              onClick={() => {
+                if (location.pathname.startsWith('/uploads')) {
+                  navigate(activeProjectId ? `/project/${activeProjectId}` : '/project/new');
+                } else {
+                  navigate('/uploads');
+                }
+              }}
+              className={`px-2 sm:px-3 h-8 sm:h-9 rounded-lg sm:rounded-xl flex-shrink-0 transition-colors ${location.pathname.startsWith('/uploads')
                 ? 'bg-primary text-zinc-950 border-primary hover:bg-primary/90 hover:text-zinc-950'
                 : 'bg-zinc-800/80 border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700'
-            }`}
-          >
-            <UploadCloud className="w-4 sm:w-[18px] h-4 sm:h-[18px]" strokeWidth={1.8} />
-          </Button>
+                }`}
+            >
+              <UploadCloud className="w-4 sm:w-[18px] h-4 sm:h-[18px]" strokeWidth={1.8} />
+            </Button>
           </Tip>
 
           {/* Language Selector */}
@@ -344,8 +387,8 @@ function AppInner() {
                   key={lang.code}
                   onClick={() => i18n.changeLanguage(lang.code)}
                   className={`font-semibold text-center justify-center ${(i18n.resolvedLanguage?.split('-')[0] === lang.code)
-                      ? 'bg-primary/15 text-primary hover:bg-primary/20'
-                      : ''
+                    ? 'bg-primary/15 text-primary hover:bg-primary/20'
+                    : ''
                     }`}
                 >
                   {lang.label}
@@ -362,9 +405,9 @@ function AppInner() {
                 className="flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 bg-zinc-800/80 hover:bg-zinc-700 border-zinc-700/60 rounded-lg sm:rounded-xl text-zinc-200 flex-shrink-0"
               >
                 {user?.avatarUrl ? (
-                  <img 
-                    src={user.avatarUrl} 
-                    alt={user?.username || user?.email} 
+                  <img
+                    src={user.avatarUrl}
+                    alt={user?.username || user?.email}
                     className="w-5 h-5 rounded-full object-cover border border-zinc-600"
                   />
                 ) : (
@@ -384,161 +427,164 @@ function AppInner() {
 
           {/* Settings button */}
           <Tip content={t('settings.title')}>
-          <Button
-            variant="outline"
-            onClick={() => setShowSettings(true)}
-            aria-label={t('settings.title')}
-            className="px-2 sm:px-3 h-8 sm:h-9 bg-zinc-800/80 border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 rounded-lg sm:rounded-xl flex-shrink-0"
-          >
-            <SettingsIcon className="w-4 sm:w-[18px] h-4 sm:h-[18px]" strokeWidth={1.8} />
-          </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowSettings(true)}
+              aria-label={t('settings.title')}
+              className="px-2 sm:px-3 h-8 sm:h-9 bg-zinc-800/80 border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 rounded-lg sm:rounded-xl flex-shrink-0"
+            >
+              <SettingsIcon className="w-4 sm:w-[18px] h-4 sm:h-[18px]" strokeWidth={1.8} />
+            </Button>
           </Tip>
 
           {/* Help button */}
           <Tip content={t('shortcuts.title') || 'Shortcuts'}>
-          <Button
-            variant="outline"
-            onClick={() => setShowKeyboardHelp(prev => !prev)}
-            aria-label={t('shortcuts.title') || 'Shortcuts'}
-            className="px-2 sm:px-3 h-8 sm:h-9 bg-zinc-800/80 border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 rounded-lg sm:rounded-xl flex-shrink-0"
-          >
-            <Kbd>?</Kbd>
-          </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowKeyboardHelp(prev => !prev)}
+              aria-label={t('shortcuts.title') || 'Shortcuts'}
+              className="px-2 sm:px-3 h-8 sm:h-9 bg-zinc-800/80 border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700 rounded-lg sm:rounded-xl flex-shrink-0"
+            >
+              <Kbd>?</Kbd>
+            </Button>
           </Tip>
 
 
         </div>
       </header>
 
-      <div className={`relative z-base max-w-7xl mx-auto w-full flex-1 min-h-0 px-2 sm:px-4 lg:px-6 lg:pb-4 flex flex-col ${setupPhase === 'ready' ? 'max-lg:pb-[144px]' : ''}`}>
-        {showUploads ? (
-          <Suspense fallback={
-            <div className="glass rounded-xl sm:rounded-2xl p-5 flex-1">
-              <SkeletonList count={3} />
-            </div>
-          }>
-            <UploadsLibrary
-              onSelect={(upload) => {
-                // Load selected upload into the player
-                if (upload.source === 'youtube' && upload.youtubeUrl) {
-                  playerRef.current?.loadYouTube?.(upload.youtubeUrl);
-                } else if (upload.source === 'cloudinary' && upload.cloudinaryUrl) {
-                  fetch(upload.cloudinaryUrl)
-                    .then((res) => res.blob())
-                    .then((blob) => {
-                      const file = new File([blob], upload.fileName || 'audio.mp3', { type: blob.type || 'audio/mpeg' });
-                      playerRef.current?.loadLocalAudio?.(file);
-                    })
-                    .catch(() => {});
-                }
-                setShowUploads(false);
-              }}
-              onBack={() => setShowUploads(false)}
-            />
-          </Suspense>
-        ) : setupPhase === 'setup' ? (
-          <Suspense fallback={<SkeletonSetup />}>
-            <SetupScreen 
-              onComplete={handleSetupComplete} 
-              playerRef={playerRef} 
-              onShowAllUploads={() => setShowUploads(true)}
-              onOpenSettings={() => setShowSettings(true)}
-            />
-          </Suspense>
-        ) : showLibrary ? (
-          <Suspense fallback={
-            <div className="glass rounded-xl sm:rounded-2xl p-5 flex-1">
-              <SkeletonList count={3} />
-            </div>
-          }>
-            <Library
-              onOpenProject={(projectId) => {
-                loadProject(projectId);
-                setShowLibrary(false);
-              }}
-              onBack={() => setShowLibrary(false)}
-            />
-          </Suspense>
-        ) : (
-        /* Main content grid */
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-3 lg:gap-4 min-h-0 overflow-visible transition-all duration-300">
-          {/* Left: Editor */}
-          {showEditor && (
-            <div className={`${editorColClass} relative flex flex-col gap-2 sm:gap-3 lg:gap-4 min-h-0 max-lg:h-full transition-all duration-300 ${mobileTab !== 'editor' ? 'max-lg:hidden' : ''}`}>
-              {isSharedProject && sharedReadOnly && (
-                <div className="absolute inset-0 z-raised rounded-xl sm:rounded-2xl backdrop-blur-[3px] bg-zinc-950/60 flex flex-col items-center justify-center gap-3">
-                  <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900/95 border border-zinc-700/80 rounded-xl shadow-lg">
-                    <Lock className="w-4 h-4 text-amber-400" />
-                    <span className="text-sm font-semibold text-zinc-100">{t('project.readOnly')}</span>
-                  </div>
-                  <p className="text-xs text-zinc-400 text-center px-8 max-w-xs">{t('project.readOnlyDesc')}</p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSharedReadOnly(false)}
-                    className="mt-1 bg-zinc-800 border-zinc-600 text-zinc-100 hover:bg-zinc-700 gap-1.5 text-xs font-semibold"
-                  >
-                    <LockOpen className="w-3.5 h-3.5" />
-                    {t('project.editCopy')}
-                  </Button>
-                </div>
-              )}
-              <div className="flex-1 min-h-0 flex flex-col">
-                <Suspense fallback={<SkeletonEditor />}>
-                <Editor
-                  lines={lines}
-                  setLines={setLines}
-                  syncMode={syncMode}
-                  setSyncMode={setSyncMode}
-                  activeLineIndex={activeLineIndex}
-                  setActiveLineIndex={setActiveLineIndex}
-                  playbackPosition={playbackPosition}
-                  playerRef={playerRef}
-                  undo={undo}
-                  redo={redo}
-                  canUndo={canUndo}
-                  canRedo={canRedo}
-                  editorMode={editorMode}
-                  setEditorMode={setEditorMode}
-                  duration={duration}
-                  onImport={triggerImportSave}
-                  handleManualSave={handleManualSave}
-                  handleRemoveAllLyrics={handleRemoveAllLyrics}
-                  isAutosaving={isAutosaving}
-                  compact={false}
-                />
-                </Suspense>
+      <div className={`relative z-base max-w-7xl mx-auto w-full flex-1 min-h-0 px-2 sm:px-4 lg:px-6 lg:pb-4 flex flex-col ${isReady ? 'max-lg:pb-[144px]' : ''}`}>
+        <Routes>
+          <Route path="uploads" element={
+            <Suspense fallback={
+              <div className="glass rounded-xl sm:rounded-2xl p-5 flex-1">
+                <SkeletonList count={3} />
               </div>
-            </div>
-          )}
-
-          {/* Right: Preview */}
-          {showPreview && (
-            <div className={`flex ${previewColClass} min-h-0 flex-col max-lg:h-full max-lg:mt-0 lg:mt-0 transition-all duration-300 ${mobileTab !== 'preview' ? 'max-lg:hidden' : ''}`}>
-              <Suspense fallback={<SkeletonPreview />}>
-              <Preview
-                lines={lines}
-                setLines={setLines}
-                playbackPosition={playbackPosition}
-                mediaTitle={mediaTitle}
-                playerRef={playerRef}
-                duration={duration}
-                editorMode={editorMode}
-                exportToUrl={exportToUrl}
-                isSharedProject={isSharedProject}
-                sharedReadOnly={sharedReadOnly}
-                setSharedReadOnly={setSharedReadOnly}
-                shareModal={shareModal}
-                setShareModal={setShareModal}
-                hasMedia={hasMedia}
-                activeProjectId={activeProjectId}
-                project={pendingProject || null}
+            }>
+              <UploadsLibrary
+                onSelect={(upload) => navigate(`/uploads/${upload.id}`)}
+                onBack={() => navigate('/project/new')}
               />
-              </Suspense>
-            </div>
-          )}
-        </div>
-        )}
+            </Suspense>
+          } />
+          <Route path="uploads/:id" element={
+            <Suspense fallback={
+              <div className="glass rounded-xl sm:rounded-2xl p-5 flex-1">
+                <SkeletonList count={3} />
+              </div>
+            }>
+              <UploadDetailView onBack={() => navigate('/uploads')} />
+            </Suspense>
+          } />
+          <Route path="project/new" element={
+            <Suspense fallback={<SkeletonSetup />}>
+              <SetupScreen
+                onComplete={handleSetupComplete}
+                playerRef={playerRef}
+                onShowAllUploads={() => navigate('/uploads')}
+                onOpenSettings={() => setShowSettings(true)}
+              />
+            </Suspense>
+          } />
+          <Route path="library" element={
+            <Suspense fallback={
+              <div className="glass rounded-xl sm:rounded-2xl p-5 flex-1">
+                <SkeletonList count={3} />
+              </div>
+            }>
+              <Library
+                onOpenProject={(projectId) => {
+                  loadProject(projectId);
+                  navigate(`/project/${projectId}`);
+                }}
+                onBack={() => navigate('/project/new')}
+              />
+            </Suspense>
+          } />
+          <Route path="project/:id" element={
+            <EditorContainer loadProject={loadProject} activeProjectId={activeProjectId}>
+              <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-3 lg:gap-4 min-h-0 overflow-visible transition-all duration-300">
+                {/* Left: Editor */}
+                {showEditor && (
+                  <div className={`${editorColClass} relative flex flex-col gap-2 sm:gap-3 lg:gap-4 min-h-0 max-lg:h-full transition-all duration-300 ${mobileTab !== 'editor' ? 'max-lg:hidden' : ''}`}>
+                    {isSharedProject && sharedReadOnly && (
+                      <div className="absolute inset-0 z-raised rounded-xl sm:rounded-2xl backdrop-blur-[3px] bg-zinc-950/60 flex flex-col items-center justify-center gap-3">
+                        <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900/95 border border-zinc-700/80 rounded-xl shadow-lg">
+                          <Lock className="w-4 h-4 text-amber-400" />
+                          <span className="text-sm font-semibold text-zinc-100">{t('project.readOnly')}</span>
+                        </div>
+                        <p className="text-xs text-zinc-400 text-center px-8 max-w-xs">{t('project.readOnlyDesc')}</p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSharedReadOnly(false)}
+                          className="mt-1 bg-zinc-800 border-zinc-600 text-zinc-100 hover:bg-zinc-700 gap-1.5 text-xs font-semibold"
+                        >
+                          <LockOpen className="w-3.5 h-3.5" />
+                          {t('project.editCopy')}
+                        </Button>
+                      </div>
+                    )}
+                    <div className="flex-1 min-h-0 flex flex-col">
+                      <Suspense fallback={<SkeletonEditor />}>
+                        <Editor
+                          lines={lines}
+                          setLines={setLines}
+                          syncMode={syncMode}
+                          setSyncMode={setSyncMode}
+                          activeLineIndex={activeLineIndex}
+                          setActiveLineIndex={setActiveLineIndex}
+                          playbackPosition={playbackPosition}
+                          playerRef={playerRef}
+                          undo={undo}
+                          redo={redo}
+                          canUndo={canUndo}
+                          canRedo={canRedo}
+                          editorMode={editorMode}
+                          setEditorMode={setEditorMode}
+                          duration={duration}
+                          onImport={triggerImportSave}
+                          handleManualSave={handleManualSave}
+                          handleRemoveAllLyrics={handleRemoveAllLyrics}
+                          isAutosaving={isAutosaving}
+                          compact={false}
+                        />
+                      </Suspense>
+                    </div>
+                  </div>
+                )}
+
+                {/* Right: Preview */}
+                {showPreview && (
+                  <div className={`flex ${previewColClass} min-h-0 flex-col max-lg:h-full max-lg:mt-0 lg:mt-0 transition-all duration-300 ${mobileTab !== 'preview' ? 'max-lg:hidden' : ''}`}>
+                    <Suspense fallback={<SkeletonPreview />}>
+                      <Preview
+                        lines={lines}
+                        setLines={setLines}
+                        playbackPosition={playbackPosition}
+                        mediaTitle={mediaTitle}
+                        playerRef={playerRef}
+                        duration={duration}
+                        editorMode={editorMode}
+                        exportToUrl={exportToUrl}
+                        isSharedProject={isSharedProject}
+                        sharedReadOnly={sharedReadOnly}
+                        setSharedReadOnly={setSharedReadOnly}
+                        shareModal={shareModal}
+                        setShareModal={setShareModal}
+                        hasMedia={hasMedia}
+                        activeProjectId={activeProjectId}
+                        project={pendingProject || null}
+                      />
+                    </Suspense>
+                  </div>
+                )}
+              </div>
+            </EditorContainer>
+          } />
+          <Route index element={<Navigate to="/project/new" replace />} />
+          <Route path="*" element={<Navigate to="/project/new" replace />} />
+        </Routes>
       </div>
 
       {/* ── Player (one instance) ──
@@ -546,7 +592,7 @@ function AppInner() {
           Mobile:  fixed compact bar above the tab bar — compact layout
                    shows seekbar + finger-friendly action row.
           Hidden during setup phase but kept mounted for playerRef. ── */}
-      <div className={`lg:relative lg:z-raised lg:w-full lg:border-t lg:border-zinc-700/50 lg:bg-zinc-900/80 lg:backdrop-blur-md lg:shadow-[0_-4px_24px_rgba(0,0,0,0.3)] max-lg:fixed max-lg:inset-x-0 max-lg:bottom-14 max-lg:z-player ${setupPhase !== 'ready' ? 'hidden' : ''}`}>
+      <div className={`lg:relative lg:z-raised lg:w-full lg:border-t lg:border-zinc-700/50 lg:bg-zinc-900/80 lg:backdrop-blur-md lg:shadow-[0_-4px_24px_rgba(0,0,0,0.3)] max-lg:fixed max-lg:inset-x-0 max-lg:bottom-14 max-lg:z-player ${!isReady ? 'hidden' : ''}`}>
         <div className="max-w-7xl mx-auto max-lg:p-0 lg:px-6 lg:py-3">
           <Player
             ref={playerRef}
@@ -568,42 +614,40 @@ function AppInner() {
       </div>
 
       {/* ── Mobile: Bottom tab bar ── */}
-      {setupPhase === 'ready' && (
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-nav h-14 bg-zinc-900/95 backdrop-blur-md border-t border-zinc-700/50 flex items-stretch pb-safe">
-        {[
-          { id: 'editor',  label: t('app.tab.editor', 'Editor'),  Icon: LayoutList },
-          { id: 'preview', label: t('app.tab.preview', 'Preview'), Icon: Eye },
-          { id: 'library', label: t('library.title'), Icon: BookOpen },
-          { id: 'uploads', label: t('uploads.title'), Icon: UploadCloud },
-        ].map(({ id, label, Icon }) => (
-          <button
-            key={id}
-            onClick={() => {
-              if (id === 'library') {
-                setShowLibrary(prev => !prev);
-                setShowUploads(false);
-              } else if (id === 'uploads') {
-                setShowUploads(prev => !prev);
-                setShowLibrary(false);
-              } else {
-                setShowLibrary(false);
-                setShowUploads(false);
-                setMobileTab(id);
-              }
-            }}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors ${
-              (id === 'library' ? showLibrary : id === 'uploads' ? showUploads : (!showLibrary && !showUploads && mobileTab === id))
+      {isReady && (
+        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-nav h-14 bg-zinc-900/95 backdrop-blur-md border-t border-zinc-700/50 flex items-stretch pb-safe">
+          {[
+            { id: 'editor', label: t('app.tab.editor', 'Editor'), Icon: LayoutList },
+            { id: 'preview', label: t('app.tab.preview', 'Preview'), Icon: Eye },
+            { id: 'library', label: t('library.title'), Icon: BookOpen },
+            { id: 'uploads', label: t('uploads.title'), Icon: UploadCloud },
+          ].map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              onClick={() => {
+                if (id === 'library') {
+                  navigate('/library');
+                } else if (id === 'uploads') {
+                  navigate('/uploads');
+                } else {
+                  if (!location.pathname.startsWith('/project/')) {
+                    navigate(activeProjectId ? `/project/${activeProjectId}` : '/project/new');
+                  }
+                  setMobileTab(id);
+                }
+              }}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors ${(id === 'library' ? location.pathname.startsWith('/library') : id === 'uploads' ? location.pathname.startsWith('/uploads') : (location.pathname.startsWith('/project/') && mobileTab === id))
                 ? 'text-primary'
                 : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-            aria-label={label}
-            aria-current={mobileTab === id ? 'page' : undefined}
-          >
-            <Icon className="w-5 h-5" strokeWidth={mobileTab === id ? 2.5 : 1.8} />
-            <span>{label}</span>
-          </button>
-        ))}
-      </nav>
+                }`}
+              aria-label={label}
+              aria-current={mobileTab === id ? 'page' : undefined}
+            >
+              <Icon className="w-5 h-5" strokeWidth={mobileTab === id ? 2.5 : 1.8} />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
       )}
 
       <Suspense fallback={null}>
@@ -615,8 +659,8 @@ function AppInner() {
 
       {/* Project Setup Modal */}
       <ProjectSetupModal
-        isOpen={setupPhase === 'naming'}
-        onClose={() => setSetupPhase('setup')}
+        isOpen={showNamingModal}
+        onClose={() => setShowNamingModal(false)}
         onConfirm={handleProjectConfirm}
       />
 
