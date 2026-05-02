@@ -123,186 +123,185 @@ export default function Preview(props) {
 
   return (
     <>
-    <div className="glass relative rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col h-full animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2 sm:mb-4 gap-2 sm:gap-4 relative z-raised">
-        <h2 className="text-xs sm:text-sm font-semibold tracking-widest text-zinc-400 flex items-center gap-2 overflow-hidden flex-1 pb-1">
-          <span className="uppercase shrink-0 text-xs sm:text-sm flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" />{t('preview.title')}</span>
-        </h2>
-        {hasSyncedLines && (
-          <div className="relative flex items-center gap-1 text-zinc-300">
-            {hasFurigana && (
-              <Tip content={t('preview.furigana', 'Furigana')}>
+      <div className="glass relative rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col h-full animate-fade-in">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-2 sm:mb-4 gap-2 sm:gap-4 relative z-raised">
+          <h2 className="text-xs sm:text-sm font-semibold tracking-widest text-zinc-400 flex items-center gap-2 overflow-hidden flex-1 pb-1">
+            <span className="uppercase shrink-0 text-xs sm:text-sm flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" />{t('preview.title')}</span>
+          </h2>
+          {hasSyncedLines && (
+            <div className="relative flex items-center gap-1 text-zinc-300">
+              {hasFurigana && (
+                <Tip content={t('preview.furigana', 'Furigana')}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setShowFuriganaInPreview((v) => !v)}
+                    className={`flex-shrink-0 transition-colors ${showFuriganaInPreview ? 'text-primary bg-primary/10 hover:bg-primary/20' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'}`}
+                  >
+                    <BookOpen className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={1.8} />
+                  </Button>
+                </Tip>
+              )}
+              {/* Share button */}
+              <Tip content={shareModal ? t('share.close') : (isSharedProject ? t('share.viewingShared') : t('app.shareProject'))}>
                 <Button
+                  ref={shareTriggerRef}
                   variant="ghost"
                   size="icon-sm"
-                  onClick={() => setShowFuriganaInPreview((v) => !v)}
-                  className={`flex-shrink-0 transition-colors ${showFuriganaInPreview ? 'text-primary bg-primary/10 hover:bg-primary/20' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'}`}
+                  onClick={handleShareToggle}
+                  className={`flex-shrink-0 transition-colors ${isSharedProject
+                      ? 'text-primary bg-primary/10 hover:bg-primary/20'
+                      : shareModal
+                        ? 'bg-zinc-800 text-zinc-100 hover:bg-zinc-700'
+                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                    }`}
                 >
-                  <BookOpen className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={1.8} />
-                </Button>
-              </Tip>
-            )}
-            {/* Share button */}
-            <Tip content={shareModal ? t('share.close') : (isSharedProject ? t('share.viewingShared') : t('app.shareProject'))}>
-              <Button
-                ref={shareTriggerRef}
-                variant="ghost"
-                size="icon-sm"
-                onClick={handleShareToggle}
-                className={`flex-shrink-0 transition-colors ${
-                  isSharedProject
-                    ? 'text-primary bg-primary/10 hover:bg-primary/20'
-                    : shareModal
-                      ? 'bg-zinc-800 text-zinc-100 hover:bg-zinc-700'
-                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
-                }`}
-              >
-              {shareModal
-                ? <X className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={2} />
-                : <Share2 className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={1.8} />
-              }
-              </Button>
-            </Tip>
-            {/* Lock/unlock toggle for shared projects */}
-            {isSharedProject && (
-              <Tip content={sharedReadOnly ? t('share.readOnlyTitle') : t('share.editingTitle')}>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => setSharedReadOnly?.(!sharedReadOnly)}
-                  className={`flex-shrink-0 ${sharedReadOnly ? 'text-amber-400 hover:text-amber-300 bg-amber-400/10 hover:bg-amber-400/20' : 'text-emerald-400 hover:text-emerald-300 bg-emerald-400/10 hover:bg-emerald-400/20'}`}
-                >
-                  {sharedReadOnly
-                    ? <Lock className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={1.8} />
-                    : <LockOpen className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={1.8} />
+                  {shareModal
+                    ? <X className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={2} />
+                    : <Share2 className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={1.8} />
                   }
                 </Button>
               </Tip>
-            )}
-            {lines.some(l => l.translation) && (
-              <Tip content={t('preview.toggleTranslations') || 'Toggle Translations'}>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => setShowTranslationsInPreview(!showTranslationsInPreview)}
-                  className={`flex-shrink-0 ${showTranslationsInPreview ? 'text-primary hover:text-primary-dim bg-zinc-800/50 hover:bg-zinc-800' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'}`}
-                >
-                  <svg className="w-4 sm:w-5 h-4 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
-                  </svg>
-                </Button>
-              </Tip>
-            )}
-            <div className="relative">
-              <Tip content={t('export.title') || 'Export File'}>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  data-export-toggle
-                  onClick={() => setShowExportPanel(!showExportPanel)}
-                  className={`flex-shrink-0 ${showExportPanel ? 'bg-zinc-800 text-zinc-100 hover:bg-zinc-700' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'}`}
-                >
-                {showExportPanel ? (
-                  <X className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={2} />
-                ) : (
-                  <svg className="w-4 sm:w-5 h-4 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                )}
-                </Button>
-              </Tip>
-            </div>
+              {/* Lock/unlock toggle for shared projects */}
+              {isSharedProject && (
+                <Tip content={sharedReadOnly ? t('share.readOnlyTitle') : t('share.editingTitle')}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setSharedReadOnly?.(!sharedReadOnly)}
+                    className={`flex-shrink-0 ${sharedReadOnly ? 'text-amber-400 hover:text-amber-300 bg-amber-400/10 hover:bg-amber-400/20' : 'text-emerald-400 hover:text-emerald-300 bg-emerald-400/10 hover:bg-emerald-400/20'}`}
+                  >
+                    {sharedReadOnly
+                      ? <Lock className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={1.8} />
+                      : <LockOpen className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={1.8} />
+                    }
+                  </Button>
+                </Tip>
+              )}
+              {lines.some(l => l.translation) && (
+                <Tip content={t('preview.toggleTranslations') || 'Toggle Translations'}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setShowTranslationsInPreview(!showTranslationsInPreview)}
+                    className={`flex-shrink-0 ${showTranslationsInPreview ? 'text-primary hover:text-primary-dim bg-zinc-800/50 hover:bg-zinc-800' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'}`}
+                  >
+                    <svg className="w-4 sm:w-5 h-4 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                    </svg>
+                  </Button>
+                </Tip>
+              )}
+              <div className="relative">
+                <Tip content={t('export.title') || 'Export File'}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    data-export-toggle
+                    onClick={() => setShowExportPanel(!showExportPanel)}
+                    className={`flex-shrink-0 ${showExportPanel ? 'bg-zinc-800 text-zinc-100 hover:bg-zinc-700' : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'}`}
+                  >
+                    {showExportPanel ? (
+                      <X className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={2} />
+                    ) : (
+                      <svg className="w-4 sm:w-5 h-4 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                    )}
+                  </Button>
+                </Tip>
+              </div>
 
-            {/* Menu */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 flex-shrink-0"
-                >
-                  <Plus className="w-4 sm:w-5 h-4 sm:h-5" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-36 sm:w-48" align="end">
-                <PopoverItem
-                  onClick={() => { setPastingType('secondary'); setPasteText(lines.map(l => l.secondary || '').join('\n')); }}
-                  className="sm:text-sm"
-                >
-                  {t('preview.secondaryLyrics')}
-                </PopoverItem>
-                <PopoverItem
-                  onClick={() => { setPastingType('translation'); setPasteText(lines.map(l => l.translation || '').join('\n')); }}
-                  className="sm:text-sm"
-                >
-                  {t('preview.translation')}
-                </PopoverItem>
-              </PopoverContent>
-            </Popover>
-          </div>
+              {/* Menu */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 flex-shrink-0"
+                  >
+                    <Plus className="w-4 sm:w-5 h-4 sm:h-5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-36 sm:w-48" align="end">
+                  <PopoverItem
+                    onClick={() => { setPastingType('secondary'); setPasteText(lines.map(l => l.secondary || '').join('\n')); }}
+                    className="sm:text-sm"
+                  >
+                    {t('preview.secondaryLyrics')}
+                  </PopoverItem>
+                  <PopoverItem
+                    onClick={() => { setPastingType('translation'); setPasteText(lines.map(l => l.translation || '').join('\n')); }}
+                    className="sm:text-sm"
+                  >
+                    {t('preview.translation')}
+                  </PopoverItem>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+        </div>
+
+        {/* Viewport */}
+        {showExportPanel ? (
+          <ExportPanel
+            showExportPanel={showExportPanel}
+            setShowExportPanel={setShowExportPanel}
+            exportFilename={exportFilename}
+            setExportFilename={setExportFilename}
+            metadata={metadata}
+            setMetadata={setMetadata}
+            includeTranslations={includeTranslations}
+            setIncludeTranslations={setIncludeTranslations}
+            includeSecondary={includeSecondary}
+            setIncludeSecondary={setIncludeSecondary}
+            includeWordTimestamps={includeWordTimestamps}
+            setIncludeWordTimestamps={setIncludeWordTimestamps}
+            includeMetadata={includeMetadata}
+            setIncludeMetadata={setIncludeMetadata}
+            hasTranslations={hasTranslations}
+            hasSecondary={hasSecondary}
+            hasWords={hasWords}
+            hasFurigana={hasFurigana}
+            wasCopied={wasCopied}
+            handleExport={handleExport}
+            handleCopy={handleCopy}
+          />
+        ) : pastingType ? (
+          <PreviewPasteArea
+            pastingType={pastingType}
+            setPastingType={setPastingType}
+            pasteText={pasteText}
+            setPasteText={setPasteText}
+            handleSavePaste={handleSavePaste}
+          />
+        ) : (
+          <PreviewViewport
+            containerRef={containerRef}
+            lines={lines}
+            currentIndex={currentIndex}
+            hasSyncedLines={hasSyncedLines}
+            playbackPosition={playbackPosition}
+            activeRef={activeRef}
+            handleLineClick={handleLineClick}
+            showTranslationsInPreview={showTranslationsInPreview}
+            showFuriganaInPreview={showFuriganaInPreview}
+            sizeOption={sizeOption}
+            spacingOption={spacingOption}
+            activeSecondarySizes={activeSecondarySizes}
+            inactiveSecondarySizes={inactiveSecondarySizes}
+            activeFontSizes={activeFontSizes}
+            inactiveFontSizes={inactiveFontSizes}
+            activeMargin={activeMargin}
+            wrapperSpacing={wrapperSpacing}
+            settings={settings}
+            editorMode={editorMode}
+            t={t}
+            hasMedia={hasMedia}
+          />
         )}
       </div>
-
-      {/* Viewport */}
-      {showExportPanel ? (
-        <ExportPanel
-          showExportPanel={showExportPanel}
-          setShowExportPanel={setShowExportPanel}
-          exportFilename={exportFilename}
-          setExportFilename={setExportFilename}
-          metadata={metadata}
-          setMetadata={setMetadata}
-          includeTranslations={includeTranslations}
-          setIncludeTranslations={setIncludeTranslations}
-          includeSecondary={includeSecondary}
-          setIncludeSecondary={setIncludeSecondary}
-          includeWordTimestamps={includeWordTimestamps}
-          setIncludeWordTimestamps={setIncludeWordTimestamps}
-          includeMetadata={includeMetadata}
-          setIncludeMetadata={setIncludeMetadata}
-          hasTranslations={hasTranslations}
-          hasSecondary={hasSecondary}
-          hasWords={hasWords}
-          hasFurigana={hasFurigana}
-          wasCopied={wasCopied}
-          handleExport={handleExport}
-          handleCopy={handleCopy}
-        />
-      ) : pastingType ? (
-        <PreviewPasteArea
-          pastingType={pastingType}
-          setPastingType={setPastingType}
-          pasteText={pasteText}
-          setPasteText={setPasteText}
-          handleSavePaste={handleSavePaste}
-        />
-      ) : (
-        <PreviewViewport
-          containerRef={containerRef}
-          lines={lines}
-          currentIndex={currentIndex}
-          hasSyncedLines={hasSyncedLines}
-          playbackPosition={playbackPosition}
-          activeRef={activeRef}
-          handleLineClick={handleLineClick}
-          showTranslationsInPreview={showTranslationsInPreview}
-          showFuriganaInPreview={showFuriganaInPreview}
-          sizeOption={sizeOption}
-          spacingOption={spacingOption}
-          activeSecondarySizes={activeSecondarySizes}
-          inactiveSecondarySizes={inactiveSecondarySizes}
-          activeFontSizes={activeFontSizes}
-          inactiveFontSizes={inactiveFontSizes}
-          activeMargin={activeMargin}
-          wrapperSpacing={wrapperSpacing}
-          settings={settings}
-          editorMode={editorMode}
-          t={t}
-          hasMedia={hasMedia}
-        />
-      )}
-    </div>
       {shareModal && shareAnchor && createPortal(
         <div
           ref={sharePanelRef}
@@ -319,6 +318,7 @@ export default function Preview(props) {
             {...shareModal}
             isPublic={isPublic}
             onPrivacyChange={handlePrivacyChange}
+            playbackPosition={playbackPosition}
           />
         </div>,
         document.body
@@ -411,7 +411,7 @@ function PreviewViewport({
       align: scrollAlignment === 'start' ? 'start' : scrollAlignment === 'end' ? 'end' : 'center',
       behavior: scrollMode,
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, isDualLine, scrollAlignment, scrollMode]);
 
   if (!lines.length) {
@@ -459,8 +459,8 @@ function PreviewViewport({
               playbackPosition={playbackPosition}
               activeRef={activeRef}
               handleLineClick={handleLineClick}
-              handleLineHover={() => {}}
-              handleLineHoverEnd={() => {}}
+              handleLineHover={() => { }}
+              handleLineHoverEnd={() => { }}
               showTranslationsInPreview={showTranslationsInPreview}
               showFuriganaInPreview={showFuriganaInPreview}
               sizeOption={sizeOption}
@@ -517,8 +517,8 @@ function PreviewViewport({
                 playbackPosition={i === currentIndex ? playbackPosition : null}
                 activeRef={i === currentIndex ? activeRef : null}
                 handleLineClick={handleLineClick}
-                handleLineHover={() => {}}
-                handleLineHoverEnd={() => {}}
+                handleLineHover={() => { }}
+                handleLineHoverEnd={() => { }}
                 showTranslationsInPreview={showTranslationsInPreview}
                 showFuriganaInPreview={showFuriganaInPreview}
                 sizeOption={sizeOption}
