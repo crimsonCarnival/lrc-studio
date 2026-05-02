@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,16 @@ import { X, Sparkles, Image as ImageIcon, Upload, Loader2 } from 'lucide-react';
 import { uploads as uploadsApi } from '../../api';
 import toast from 'react-hot-toast';
 
-export default function ProjectSetupModal({ isOpen, onClose, onConfirm }) {
+export default function ProjectSetupModal({ 
+  isOpen, 
+  onClose, 
+  onConfirm,
+  initialName = '',
+  initialDescription = '',
+  initialTags = [],
+  initialCoverUrl = '',
+  initialCoverPublicId = ''
+}) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -20,6 +29,17 @@ export default function ProjectSetupModal({ isOpen, onClose, onConfirm }) {
   const [coverUploading, setCoverUploading] = useState(false);
   const tagInputRef = useRef(null);
   const coverInputRef = useRef(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setName(initialName || '');
+      setDescription(initialDescription || '');
+      setTags(initialTags || []);
+      setTagInput('');
+      setCoverUrl(initialCoverUrl || '');
+      setCoverPublicId(initialCoverPublicId || '');
+    }
+  }, [isOpen, initialName, initialDescription, initialTags, initialCoverUrl, initialCoverPublicId]);
 
   if (!isOpen) return null;
 

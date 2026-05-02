@@ -65,6 +65,8 @@ function AppInner() {
     duration,
     mediaTitle,
     setMediaTitle,
+    projectTitle,
+    setProjectTitle,
     showKeyboardHelp,
     setShowKeyboardHelp,
     showSettings,
@@ -161,9 +163,6 @@ function AppInner() {
   }, [location.pathname, playerRef]);
 
   const [showNamingModal, setShowNamingModal] = useState(false);
-  const [projectName, setProjectName] = useState('');
-  const [projectCoverUrl, setProjectCoverUrl] = useState('');
-  const [_projectCoverPublicId, setProjectCoverPublicId] = useState('');
   const [pendingSetupData, setPendingSetupData] = useState(null);
   const [editingProjectName, setEditingProjectName] = useState(false);
 
@@ -178,15 +177,22 @@ function AppInner() {
       setEditorMode(pendingSetupData.editorMode);
       setSyncMode(true);
     }
-    setProjectName(name || mediaTitle || '');
-    setProjectMetadata({ description: description || '', tags: tags || [] });
-    setProjectCoverUrl(coverUrl || '');
-    setProjectCoverPublicId(coverPublicId || '');
+    const newTitle = name || projectTitle || mediaTitle || '';
+    const newMetadata = { 
+      description: description || '', 
+      tags: tags || [],
+      coverUrl: coverUrl || '',
+      coverPublicId: coverPublicId || ''
+    };
+    
+    setProjectTitle(newTitle);
+    setProjectMetadata(newMetadata);
     setShowNamingModal(false);
     setPendingSetupData(null);
-    triggerImportSave();
+    
+    triggerImportSave({ title: newTitle, metadata: newMetadata });
     if (!activeProjectId) navigate('/project/local');
-  }, [pendingSetupData, setLines, setEditorMode, setSyncMode, mediaTitle, setProjectMetadata, navigate, activeProjectId, triggerImportSave]);
+  }, [pendingSetupData, setLines, setEditorMode, setSyncMode, projectTitle, mediaTitle, setProjectTitle, setProjectMetadata, navigate, activeProjectId, triggerImportSave]);
 
   // Reset hideEditor when all lines are removed
   if (lines.length === 0 && hideEditor) {
@@ -271,9 +277,9 @@ function AppInner() {
             {isReady && (
               <>
                 <span className="text-zinc-600 shrink-0">/</span>
-                {projectCoverUrl && (
+                {projectMetadata?.coverUrl && (
                   <img
-                    src={projectCoverUrl}
+                    src={projectMetadata.coverUrl}
                     alt="Cover"
                     className="w-6 h-6 sm:w-7 sm:h-7 rounded object-cover border border-zinc-700 shrink-0"
                   />
@@ -281,10 +287,20 @@ function AppInner() {
                 {editingProjectName ? (
                   <Input
                     type="text"
-                    value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
-                    onBlur={() => setEditingProjectName(false)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') setEditingProjectName(false); }}
+                    value={projectTitle}
+                    onChange={(e) => setProjectTitle(e.target.value)}
+                    onBlur={() => {
+                      setEditingProjectName(false);
+                      triggerImportSave({ title: projectTitle });
+                    }}
+                    onKeyDown={(e) => { 
+                      if (e.key === 'Enter') {
+                        setEditingProjectName(false);
+                        triggerImportSave({ title: projectTitle });
+                      } else if (e.key === 'Escape') {
+                        setEditingProjectName(false);
+                      }
+                    }}
                     autoFocus
                     maxLength={200}
                     className="h-7 text-sm bg-zinc-800/60 border-zinc-700/60 text-zinc-200 min-w-[100px] max-w-[200px]"
@@ -295,7 +311,7 @@ function AppInner() {
                     className="flex items-center gap-1 min-w-0 group"
                   >
                     <span className="text-sm font-medium text-zinc-400 group-hover:text-zinc-200 truncate transition-colors">
-                      {projectName || t('setup.projectNamePlaceholder')}
+                      {projectTitle || mediaTitle || t('setup.projectNamePlaceholder')}
                     </span>
                     <Pencil className="w-3 h-3 text-zinc-600 group-hover:text-zinc-400 transition-colors shrink-0" />
                   </button>
@@ -669,6 +685,11 @@ function AppInner() {
         isOpen={showNamingModal}
         onClose={() => setShowNamingModal(false)}
         onConfirm={handleProjectConfirm}
+        initialName={projectTitle}
+        initialDescription={projectMetadata?.description}
+        initialTags={projectMetadata?.tags}
+        initialCoverUrl={projectMetadata?.coverUrl}
+        initialCoverPublicId={projectMetadata?.coverPublicId}
       />
 
 
