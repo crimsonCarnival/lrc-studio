@@ -140,7 +140,6 @@ export default function useYouTubePlayer({
           controls: 1,
           modestbranding: 1,
           rel: 0,
-          origin: window.location.origin,
         },
         events: {
           onReady: (e) => {
