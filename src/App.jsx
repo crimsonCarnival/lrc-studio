@@ -65,8 +65,6 @@ function AppInner() {
     duration,
     mediaTitle,
     setMediaTitle,
-    projectTitle,
-    setProjectTitle,
     showKeyboardHelp,
     setShowKeyboardHelp,
     showSettings,
@@ -177,7 +175,7 @@ function AppInner() {
       setEditorMode(pendingSetupData.editorMode);
       setSyncMode(true);
     }
-    const newTitle = name || projectTitle || mediaTitle || '';
+    const newTitle = name || mediaTitle || '';
     const newMetadata = { 
       description: description || '', 
       tags: tags || [],
@@ -185,14 +183,14 @@ function AppInner() {
       coverPublicId: coverPublicId || ''
     };
     
-    setProjectTitle(newTitle);
+    setMediaTitle(newTitle);
     setProjectMetadata(newMetadata);
     setShowNamingModal(false);
     setPendingSetupData(null);
     
     triggerImportSave({ title: newTitle, metadata: newMetadata });
     if (!activeProjectId) navigate('/project/local');
-  }, [pendingSetupData, setLines, setEditorMode, setSyncMode, projectTitle, mediaTitle, setProjectTitle, setProjectMetadata, navigate, activeProjectId, triggerImportSave]);
+  }, [pendingSetupData, setLines, setEditorMode, setSyncMode, mediaTitle, setMediaTitle, setProjectMetadata, navigate, activeProjectId, triggerImportSave]);
 
   // Reset hideEditor when all lines are removed
   if (lines.length === 0 && hideEditor) {
@@ -287,16 +285,16 @@ function AppInner() {
                 {editingProjectName ? (
                   <Input
                     type="text"
-                    value={projectTitle}
-                    onChange={(e) => setProjectTitle(e.target.value)}
+                    value={mediaTitle}
+                    onChange={(e) => setMediaTitle(e.target.value)}
                     onBlur={() => {
                       setEditingProjectName(false);
-                      triggerImportSave({ title: projectTitle });
+                      triggerImportSave({ title: mediaTitle });
                     }}
                     onKeyDown={(e) => { 
                       if (e.key === 'Enter') {
                         setEditingProjectName(false);
-                        triggerImportSave({ title: projectTitle });
+                        triggerImportSave({ title: mediaTitle });
                       } else if (e.key === 'Escape') {
                         setEditingProjectName(false);
                       }
@@ -311,7 +309,7 @@ function AppInner() {
                     className="flex items-center gap-1 min-w-0 group"
                   >
                     <span className="text-sm font-medium text-zinc-400 group-hover:text-zinc-200 truncate transition-colors">
-                      {projectTitle || mediaTitle || t('setup.projectNamePlaceholder')}
+                      {mediaTitle || t('setup.projectNamePlaceholder')}
                     </span>
                     <Pencil className="w-3 h-3 text-zinc-600 group-hover:text-zinc-400 transition-colors shrink-0" />
                   </button>
@@ -486,7 +484,7 @@ function AppInner() {
             }>
               <UploadsLibrary
                 onSelect={(upload) => navigate(`/uploads/${upload.id}`)}
-                onBack={() => navigate(-1)}
+                onBack={() => navigate('/project/new')}
               />
             </Suspense>
           } />
@@ -520,7 +518,7 @@ function AppInner() {
                   loadProject(projectId);
                   navigate(`/project/${projectId}`);
                 }}
-                onBack={() => navigate(-1)}
+                onBack={() => navigate('/project/new')}
               />
             </Suspense>
           } />
@@ -685,7 +683,7 @@ function AppInner() {
         isOpen={showNamingModal}
         onClose={() => setShowNamingModal(false)}
         onConfirm={handleProjectConfirm}
-        initialName={projectTitle}
+        initialName={mediaTitle}
         initialDescription={projectMetadata?.description}
         initialTags={projectMetadata?.tags}
         initialCoverUrl={projectMetadata?.coverUrl}

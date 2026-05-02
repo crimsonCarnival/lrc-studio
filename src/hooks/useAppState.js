@@ -91,7 +91,6 @@ export function useAppState(user) {
   const [activeLineIndex, setActiveLineIndex] = useState(0);
   const [playbackPosition, setPlaybackPosition] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [projectTitle, setProjectTitle] = useState('');
   const [mediaTitle, setMediaTitle] = useState('');
   const [projectMetadata, setProjectMetadata] = useState({ description: '', tags: [] });
   const [hasMedia, setHasMedia] = useState(false);
@@ -451,7 +450,7 @@ export function useAppState(user) {
             cloudinaryUrl: cloudinaryAudio.cloudinaryUrl,
             publicId: cloudinaryAudio.publicId,
             fileName: cloudinaryAudio.fileName,
-            title: mediaTitle || cloudinaryAudio.fileName?.replace(/\.[^/.]+$/, '') || '',
+            title: overrides?.title !== undefined ? overrides.title : (mediaTitle || ''),
             duration: cloudinaryAudio.duration,
           });
           uploadIdToSave = upload.id;
@@ -464,7 +463,7 @@ export function useAppState(user) {
             source: 'youtube',
             youtubeUrl: payload.ytUrl,
             fileName: '',
-            title: mediaTitle || '',
+            title: overrides?.title !== undefined ? overrides.title : (mediaTitle || ''),
             duration: duration || null,
           });
           uploadIdToSave = upload.id;
@@ -482,7 +481,7 @@ export function useAppState(user) {
         timezone: payload.timezone,
         utcOffset: payload.utcOffset,
       };
-      const title = overrides?.title !== undefined ? overrides.title : (projectTitle || '');
+      const title = overrides?.title !== undefined ? overrides.title : (mediaTitle || '');
       const metadata = overrides?.metadata !== undefined ? overrides.metadata : projectMetadata;
       const patchData = buildProjectPatch({
         prevSnapshot: lastServerSnapshotRef.current,
@@ -546,8 +545,8 @@ export function useAppState(user) {
       }
 
       const createData = {
-        title: overrides?.title !== undefined ? overrides.title : (projectTitle || ''),
-        metadata: overrides?.metadata !== undefined ? overrides.metadata : projectMetadata,
+        title: mediaTitle || '',
+        metadata: projectMetadata,
         lyrics: { editorMode, lines: payload.lines },
         state: {
           syncMode,
@@ -1099,7 +1098,6 @@ export function useAppState(user) {
     setLines([]);
     setSyncMode(false);
     setActiveLineIndex(0);
-    setProjectTitle('');
     setMediaTitle('');
     setProjectMetadata({ description: '', tags: [] });
 
@@ -1139,10 +1137,7 @@ export function useAppState(user) {
     if (project.upload?.youtubeUrl) setRestoredYtUrl(project.upload.youtubeUrl);
     if (project.state?.playbackPosition) setRestoredPosition(project.state.playbackPosition);
     if (project.state?.playbackSpeed) setRestoredSpeed(project.state.playbackSpeed);
-    if (project.upload?.title) setMediaTitle(project.upload.title);
-    else if (project.upload?.youtubeUrl && !mediaTitle) setMediaTitle(''); // Player will handle it
-    
-    if (project.title) setProjectTitle(project.title);
+    if (project.title) setMediaTitle(project.title);
     setActiveProjectId(projectId);
     updateServerSnapshot({
       title: project.title || '',
@@ -1182,7 +1177,6 @@ export function useAppState(user) {
         // Do NOT clear lines or syncMode — editor content is independent of media
         setPlaybackPosition(0);
         setDuration(0);
-        setProjectTitle('');
         setMediaTitle('');
         setCloudinaryAudio(null);
       }
@@ -1443,8 +1437,6 @@ export function useAppState(user) {
     setActiveLineIndex,
     playbackPosition,
     duration,
-    projectTitle,
-    setProjectTitle,
     mediaTitle,
     setMediaTitle,
     projectMetadata,
