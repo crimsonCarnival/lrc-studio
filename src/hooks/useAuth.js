@@ -111,6 +111,13 @@ export function useAuth() {
     setAccessToken(result.accessToken);
     setUser(result.user);
     scheduleRefresh();
+
+    const cloneProjectId = localStorage.getItem('cloneAfterAuth');
+    if (cloneProjectId) {
+      localStorage.removeItem('cloneAfterAuth');
+      window.location.href = `/?clone=${cloneProjectId}`;
+    }
+
     return result;
   }, [scheduleRefresh]);
 
@@ -121,6 +128,14 @@ export function useAuth() {
     setAccessToken(result.accessToken);
     setUser(result.user);
     scheduleRefresh();
+
+    // Handle post-auth continuation (e.g., after cloning a project)
+    const cloneProjectId = localStorage.getItem('cloneAfterAuth');
+    if (cloneProjectId) {
+      localStorage.removeItem('cloneAfterAuth');
+      window.location.href = `/?clone=${cloneProjectId}`;
+    }
+
     return result;
   }, [scheduleRefresh]);
 
