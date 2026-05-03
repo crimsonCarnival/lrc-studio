@@ -172,18 +172,18 @@ function AppInner() {
       setSyncMode(true);
     }
     const newTitle = name || mediaTitle || '';
-    const newMetadata = { 
-      description: description || '', 
+    const newMetadata = {
+      description: description || '',
       tags: tags || [],
       coverUrl: coverUrl || '',
       coverPublicId: coverPublicId || ''
     };
-    
+
     setMediaTitle(newTitle);
     setProjectMetadata(newMetadata);
     setShowNamingModal(false);
     setPendingSetupData(null);
-    
+
     triggerImportSave({ title: newTitle, metadata: newMetadata });
     if (!activeProjectId) navigate('/project/local');
   }, [pendingSetupData, setLines, setEditorMode, setSyncMode, mediaTitle, setMediaTitle, setProjectMetadata, navigate, activeProjectId, triggerImportSave]);
@@ -261,7 +261,7 @@ function AppInner() {
       {/* Logo and Header */}
       <header className="relative z-sticky flex flex-row items-center justify-between gap-2 w-full px-4 sm:px-6 lg:px-8 py-3 sm:py-5 animate-fade-in">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink">
-          <button 
+          <button
             onClick={() => {
               if (hasUnsavedChanges()) {
                 setShowUnsavedModal(true);
@@ -305,7 +305,7 @@ function AppInner() {
                       setEditingProjectName(false);
                       triggerImportSave({ title: mediaTitle });
                     }}
-                    onKeyDown={(e) => { 
+                    onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         setEditingProjectName(false);
                         triggerImportSave({ title: mediaTitle });
@@ -360,24 +360,24 @@ function AppInner() {
 
           {/* Library button */}
           <Tip content={t('library.title')}>
-              <Button
-                variant="outline"
-                aria-label={t('library.title')}
-                onClick={() => {
-                  if (location.pathname.startsWith('/library')) {
-                    navigate(activeProjectId ? `/project/${activeProjectId}` : '/project/new');
-                  } else {
-                    navigate('/library');
-                  }
-                }}
-                className={`px-2 sm:px-3 h-8 sm:h-9 rounded-lg sm:rounded-xl flex-shrink-0 transition-colors ${location.pathname.startsWith('/library')
-                  ? 'bg-primary text-zinc-950 border-primary hover:bg-primary/90 hover:text-zinc-950'
-                  : 'bg-zinc-800/80 border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700'
-                  }`}
-              >
-                <BookOpen className="w-4 sm:w-[18px] h-4 sm:h-[18px]" strokeWidth={1.8} />
-              </Button>
-            </Tip>
+            <Button
+              variant="outline"
+              aria-label={t('library.title')}
+              onClick={() => {
+                if (location.pathname.startsWith('/library')) {
+                  navigate(activeProjectId ? `/project/${activeProjectId}` : '/project/new');
+                } else {
+                  navigate('/library');
+                }
+              }}
+              className={`px-2 sm:px-3 h-8 sm:h-9 rounded-lg sm:rounded-xl flex-shrink-0 transition-colors ${location.pathname.startsWith('/library')
+                ? 'bg-primary text-zinc-950 border-primary hover:bg-primary/90 hover:text-zinc-950'
+                : 'bg-zinc-800/80 border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700'
+                }`}
+            >
+              <BookOpen className="w-4 sm:w-[18px] h-4 sm:h-[18px]" strokeWidth={1.8} />
+            </Button>
+          </Tip>
 
 
           {/* Uploads button — always visible so users can manage files before/during setup */}
@@ -590,81 +590,81 @@ function AppInner() {
               ) : (
                 <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-3 lg:gap-4 min-h-0 overflow-visible transition-all duration-300">
                   {/* Left: Editor */}
-                {showEditor && (
-                  <div className={`${editorColClass} relative flex flex-col gap-2 sm:gap-3 lg:gap-4 min-h-0 max-lg:h-full transition-all duration-300 ${mobileTab !== 'editor' ? 'max-lg:hidden' : ''}`}>
-                    {isSharedProject && sharedReadOnly && (
-                      <div className="absolute inset-0 z-raised rounded-xl sm:rounded-2xl backdrop-blur-[3px] bg-zinc-950/60 flex flex-col items-center justify-center gap-3">
-                        <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900/95 border border-zinc-700/80 rounded-xl shadow-lg">
-                          <Lock className="w-4 h-4 text-amber-400" />
-                          <span className="text-sm font-semibold text-zinc-100">{t('project.readOnly')}</span>
+                  {showEditor && (
+                    <div className={`${editorColClass} relative flex flex-col gap-2 sm:gap-3 lg:gap-4 min-h-0 max-lg:h-full transition-all duration-300 ${mobileTab !== 'editor' ? 'max-lg:hidden' : ''}`}>
+                      {isSharedProject && sharedReadOnly && (
+                        <div className="absolute inset-0 z-raised rounded-xl sm:rounded-2xl backdrop-blur-[3px] bg-zinc-950/60 flex flex-col items-center justify-center gap-3">
+                          <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900/95 border border-zinc-700/80 rounded-xl shadow-lg">
+                            <Lock className="w-4 h-4 text-amber-400" />
+                            <span className="text-sm font-semibold text-zinc-100">{t('project.readOnly')}</span>
+                          </div>
+                          <p className="text-xs text-zinc-400 text-center px-8 max-w-xs">{t('project.readOnlyDesc')}</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSharedReadOnly(false)}
+                            className="mt-1 bg-zinc-800 border-zinc-600 text-zinc-100 hover:bg-zinc-700 gap-1.5 text-xs font-semibold"
+                          >
+                            <LockOpen className="w-3.5 h-3.5" />
+                            {t('project.editCopy')}
+                          </Button>
                         </div>
-                        <p className="text-xs text-zinc-400 text-center px-8 max-w-xs">{t('project.readOnlyDesc')}</p>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSharedReadOnly(false)}
-                          className="mt-1 bg-zinc-800 border-zinc-600 text-zinc-100 hover:bg-zinc-700 gap-1.5 text-xs font-semibold"
-                        >
-                          <LockOpen className="w-3.5 h-3.5" />
-                          {t('project.editCopy')}
-                        </Button>
+                      )}
+                      <div className="flex-1 min-h-0 flex flex-col">
+                        <Suspense fallback={<SkeletonEditor />}>
+                          <Editor
+                            lines={lines}
+                            setLines={setLines}
+                            syncMode={syncMode}
+                            setSyncMode={setSyncMode}
+                            activeLineIndex={activeLineIndex}
+                            setActiveLineIndex={setActiveLineIndex}
+                            playbackPosition={playbackPosition}
+                            playerRef={playerRef}
+                            undo={undo}
+                            redo={redo}
+                            canUndo={canUndo}
+                            canRedo={canRedo}
+                            editorMode={editorMode}
+                            setEditorMode={setEditorMode}
+                            duration={duration}
+                            onImport={triggerImportSave}
+                            handleManualSave={handleManualSave}
+                            handleRemoveAllLyrics={handleRemoveAllLyrics}
+                            isAutosaving={isAutosaving}
+                            compact={false}
+                          />
+                        </Suspense>
                       </div>
-                    )}
-                    <div className="flex-1 min-h-0 flex flex-col">
-                      <Suspense fallback={<SkeletonEditor />}>
-                        <Editor
+                    </div>
+                  )}
+
+                  {/* Right: Preview */}
+                  {showPreview && (
+                    <div className={`flex ${previewColClass} min-h-0 flex-col max-lg:h-full max-lg:mt-0 lg:mt-0 transition-all duration-300 ${mobileTab !== 'preview' ? 'max-lg:hidden' : ''}`}>
+                      <Suspense fallback={<SkeletonPreview />}>
+                        <Preview
                           lines={lines}
                           setLines={setLines}
-                          syncMode={syncMode}
-                          setSyncMode={setSyncMode}
-                          activeLineIndex={activeLineIndex}
-                          setActiveLineIndex={setActiveLineIndex}
                           playbackPosition={playbackPosition}
+                          mediaTitle={mediaTitle}
                           playerRef={playerRef}
-                          undo={undo}
-                          redo={redo}
-                          canUndo={canUndo}
-                          canRedo={canRedo}
-                          editorMode={editorMode}
-                          setEditorMode={setEditorMode}
                           duration={duration}
-                          onImport={triggerImportSave}
-                          handleManualSave={handleManualSave}
-                          handleRemoveAllLyrics={handleRemoveAllLyrics}
-                          isAutosaving={isAutosaving}
-                          compact={false}
+                          editorMode={editorMode}
+                          exportToUrl={exportToUrl}
+                          isSharedProject={isSharedProject}
+                          sharedReadOnly={sharedReadOnly}
+                          setSharedReadOnly={setSharedReadOnly}
+                          shareModal={shareModal}
+                          setShareModal={setShareModal}
+                          hasMedia={hasMedia}
+                          activeProjectId={activeProjectId}
+                          project={pendingProject || null}
                         />
                       </Suspense>
                     </div>
-                  </div>
-                )}
-
-                {/* Right: Preview */}
-                {showPreview && (
-                  <div className={`flex ${previewColClass} min-h-0 flex-col max-lg:h-full max-lg:mt-0 lg:mt-0 transition-all duration-300 ${mobileTab !== 'preview' ? 'max-lg:hidden' : ''}`}>
-                    <Suspense fallback={<SkeletonPreview />}>
-                      <Preview
-                        lines={lines}
-                        setLines={setLines}
-                        playbackPosition={playbackPosition}
-                        mediaTitle={mediaTitle}
-                        playerRef={playerRef}
-                        duration={duration}
-                        editorMode={editorMode}
-                        exportToUrl={exportToUrl}
-                        isSharedProject={isSharedProject}
-                        sharedReadOnly={sharedReadOnly}
-                        setSharedReadOnly={setSharedReadOnly}
-                        shareModal={shareModal}
-                        setShareModal={setShareModal}
-                        hasMedia={hasMedia}
-                        activeProjectId={activeProjectId}
-                        project={pendingProject || null}
-                      />
-                    </Suspense>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
               )}
             </EditorContainer>
           } />
@@ -687,7 +687,7 @@ function AppInner() {
           Mobile:  fixed compact bar above the tab bar — compact layout
                    shows seekbar + finger-friendly action row.
           Hidden during setup phase but kept mounted for playerRef. ── */}
-      <div className={`lg:relative lg:z-raised lg:w-full lg:border-t lg:border-zinc-700/50 lg:bg-zinc-900/80 lg:backdrop-blur-md lg:shadow-[0_-4px_24px_rgba(0,0,0,0.3)] max-lg:fixed max-lg:inset-x-0 max-lg:bottom-14 max-lg:z-player ${!isReady ? 'hidden' : ''}`}>
+      <div className={`lg:relative lg:z-raised lg:w-full lg:mt-1 lg:border-t lg:border-zinc-700/50 lg:bg-zinc-900/80 lg:backdrop-blur-md lg:shadow-[0_-4px_24px_rgba(0,0,0,0.3)] max-lg:fixed max-lg:inset-x-0 max-lg:bottom-14 max-lg:z-player ${!isReady ? 'hidden' : ''}`}>
         <div className="max-w-7xl mx-auto max-lg:p-0 lg:px-6 lg:py-3">
           {isProjectLoading && isReady ? (
             <SkeletonPlayer />
