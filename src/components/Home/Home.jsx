@@ -15,8 +15,10 @@ import {
   FileText,
   ChevronRight,
   MoreVertical,
-  Activity
+  Activity,
+  Pencil
 } from 'lucide-react';
+import ProjectSetupModal from '../Setup/ProjectSetupModal';
 
 function formatRelativeTime(dateStr, t) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -37,6 +39,7 @@ export default function Home() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingProject, setEditingProject] = useState(null);
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -189,7 +192,7 @@ export default function Home() {
                           <span className="w-1 h-1 rounded-full bg-zinc-700" />
                           <span className="flex items-center gap-1.5">
                             <Activity className="w-3.5 h-3.5" />
-                            {lastProject.linesCount || 0} {t('library.lines', { count: '' }).replace(/[0-9]/g, '').trim()}
+                            {lastProject.syncedLineCount || 0} / {lastProject.lineCount || 0} {t('library.lines', { count: '' }).replace(/[0-9]/g, '').trim()}
                           </span>
                         </div>
                       </div>
@@ -241,13 +244,14 @@ export default function Home() {
                             </p>
                           </div>
                           <button 
-                            className="p-1 rounded-md text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                            className="p-1.5 rounded-md text-zinc-500 hover:text-primary hover:bg-primary/10 opacity-0 group-hover:opacity-100 transition-all shrink-0"
                             onClick={(e) => {
                               e.stopPropagation();
-                              // Open options menu
+                              setEditingProject(project);
                             }}
+                            title={t('project.editMetadata') || 'Edit Metadata'}
                           >
-                            <MoreVertical className="w-4 h-4" />
+                            <Pencil className="w-4 h-4" />
                           </button>
                         </div>
                         
@@ -256,9 +260,9 @@ export default function Home() {
                             <Clock className="w-3.5 h-3.5" />
                             {formatRelativeTime(project.updatedAt, t)}
                           </div>
-                          {project.linesCount > 0 && (
+                          {(project.lineCount > 0 || project.syncedLineCount > 0) && (
                             <div className="px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 font-medium">
-                              {project.linesCount} {t('library.lines', { count: '' }).replace(/[0-9]/g, '').trim()}
+                              {project.syncedLineCount || 0} / {project.lineCount || 0} {t('library.lines', { count: '' }).replace(/[0-9]/g, '').trim()}
                             </div>
                           )}
                         </div>
@@ -271,6 +275,35 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      <ProjectSetupModal
+        isOpen={!!editingProject}
+        onClose={() => setEditingProject(null)}
+        onConfirm={async (data) => {
+          try {
+            const { title, description, tags, coverUrl, coverPublicId } = data;
+            const updatedMetadata = { ...editingProject.metadata, description, tags, coverUrl, coverPublicId };
+            await projects.patch(editingProject.projectId, {
+              title,
+              metadata: updatedMetadata
+            });
+            // Update local state
+            setItems(prev => prev.map(p => 
+              p.projectId === editingProject.projectId 
+                ? { ...p, title, metadata: updatedMetadata }
+                : p
+            ));
+            setEditingProject(null);
+          } catch (err) {
+            console.error('Failed to update project metadata:', err);
+          }
+        }}
+        initialName={editingProject?.title || ''}
+        initialDescription={editingProject?.metadata?.description || ''}
+        initialTags={editingProject?.metadata?.tags || []}
+        initialCoverUrl={editingProject?.metadata?.coverUrl || ''}
+        initialCoverPublicId={editingProject?.metadata?.coverPublicId || ''}
+      />
     </div>
   );
 }

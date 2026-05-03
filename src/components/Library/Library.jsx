@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { projects } from '../../api';
 import { Button } from '@/components/ui/button';
 import { Tip } from '@/components/ui/tip';
-import { Music, Video, Upload, FileText, Trash2, ExternalLink, Clock, ArrowLeft, Loader2 } from 'lucide-react';
+import { Music, Video, Upload, FileText, Trash2, ExternalLink, Clock, ArrowLeft, Loader2, Pencil } from 'lucide-react';
 import { SkeletonCard } from '@/components/ui/skeleton';
+import ProjectSetupModal from '../Setup/ProjectSetupModal';
 
 function formatRelativeTime(dateStr, t) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -29,6 +30,7 @@ export default function Library({ onOpenProject, onBack }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
+  const [editingProject, setEditingProject] = useState(null);
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -149,6 +151,18 @@ export default function Library({ onOpenProject, onBack }) {
                 <Button
                   variant="ghost"
                   size="icon-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingProject(project);
+                  }}
+                  className="text-zinc-500 hover:text-primary hover:bg-primary/10 w-7 h-7"
+                  title={t('project.editMetadata') || 'Edit Metadata'}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   onClick={(e) => handleDelete(e, project.projectId)}
                   disabled={deletingId === project.projectId}
                   className="text-zinc-500 hover:text-red-400 hover:bg-red-500/10 w-7 h-7"
@@ -162,6 +176,35 @@ export default function Library({ onOpenProject, onBack }) {
           ))}
         </div>
       )}
+
+      <ProjectSetupModal
+        isOpen={!!editingProject}
+        onClose={() => setEditingProject(null)}
+        onConfirm={async (data) => {
+          try {
+            const { title, description, tags, coverUrl, coverPublicId } = data;
+            const updatedMetadata = { ...editingProject.metadata, description, tags, coverUrl, coverPublicId };
+            await projects.patch(editingProject.projectId, {
+              title,
+              metadata: updatedMetadata
+            });
+            // Update local state
+            setItems(prev => prev.map(p => 
+              p.projectId === editingProject.projectId 
+                ? { ...p, title, metadata: updatedMetadata }
+                : p
+            ));
+            setEditingProject(null);
+          } catch (err) {
+            console.error('Failed to update project metadata:', err);
+          }
+        }}
+        initialName={editingProject?.title || ''}
+        initialDescription={editingProject?.metadata?.description || ''}
+        initialTags={editingProject?.metadata?.tags || []}
+        initialCoverUrl={editingProject?.metadata?.coverUrl || ''}
+        initialCoverPublicId={editingProject?.metadata?.coverPublicId || ''}
+      />
     </div>
   );
 }
