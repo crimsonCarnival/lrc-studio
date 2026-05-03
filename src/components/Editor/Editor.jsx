@@ -149,6 +149,7 @@ export default function Editor({
           fileInputRef={fileInputRef}
           handleFileUpload={handleFileUpload}
           handleUrlImport={handleUrlImport}
+          onCancel={lines.length > 0 ? () => setSyncMode(true) : null}
         />
       )}
 

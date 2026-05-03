@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Kbd } from '../../shared/Kbd';
-import { Pencil, Play, ChevronLeft, ChevronRight, Plus, X, Trash2, Repeat, MoreHorizontal } from 'lucide-react';
+import { Pencil, Play, ChevronLeft, ChevronRight, Plus, X, Trash2, Repeat, MoreHorizontal, GripVertical } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -298,8 +298,16 @@ const EditorLineItem = React.memo(({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onTouchMove={handleTouchMove}
-      draggable
-      onDragStart={(e) => handleDragStart(e, i)}
+      draggable={editingLineIndex !== i}
+      onDragStart={(e) => {
+        // Only allow dragging if the target is the handle or the container itself (not text/inputs)
+        const target = e.target;
+        if (target.closest('input, button, rt, [data-no-drag]')) {
+          e.preventDefault();
+          return;
+        }
+        handleDragStart(e, i);
+      }}
       onDragOver={(e) => handleDragOver(e, i)}
       onDragEnd={handleDragEnd}
       onDrop={(e) => handleDrop(e, i)}
@@ -325,25 +333,33 @@ const EditorLineItem = React.memo(({
             : 'bg-primary/40 opacity-60'
         }`} />
       )}
-      {/* Line number / checkbox */}
-      {(settings.editor?.showLineNumbers ?? true) && (
-        <div
-          className={`w-5 shrink-0 flex ${editorMode === 'words' ? 'items-start pt-1' : 'items-center'} justify-center`}
-          onClick={(e) => e.stopPropagation()}
+      {/* Drag Handle & Line number */}
+      <div className="flex items-center gap-1 shrink-0">
+        <div 
+          className="cursor-grab active:cursor-grabbing text-zinc-700 hover:text-zinc-500 transition-colors p-0.5 -ml-1 select-none"
+          title={t('editor.dragToReorder', 'Drag to reorder')}
         >
-          {selectedLines.size > 0 ? (
-            <Checkbox
-              checked={selectedLines.has(i)}
-              onCheckedChange={() => handleToggleLine(i)}
-              className="w-3.5 h-3.5 border-zinc-600 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-            />
-          ) : (
-            <span className="text-[10px] font-mono tabular-nums text-zinc-600 select-none text-right">
-              {i + 1}
-            </span>
-          )}
+          <GripVertical className="w-3 h-3" />
         </div>
-      )}
+        {(settings.editor?.showLineNumbers ?? true) && (
+          <div
+            className={`w-5 shrink-0 flex ${editorMode === 'words' ? 'items-start pt-1' : 'items-center'} justify-center select-none`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {selectedLines.size > 0 ? (
+              <Checkbox
+                checked={selectedLines.has(i)}
+                onCheckedChange={() => handleToggleLine(i)}
+                className="w-3.5 h-3.5 border-zinc-600 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+              />
+            ) : (
+              <span className="text-[10px] font-mono tabular-nums text-zinc-600 select-none text-right">
+                {i + 1}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
       <span
         className={`text-xs font-mono tabular-nums shrink-0 transition-colors ${editorMode === 'words' ? 'self-start pt-0.5' : ''} ${isSynced
           ? 'text-primary'
@@ -641,7 +657,10 @@ const EditorLineItem = React.memo(({
       </span>
 
       {/* Lyrics text container */}
-      <div className="flex-1 min-w-0 flex items-start gap-2 overflow-x-hidden pb-0.5 mt-0.5" onDoubleClick={() => {
+      <div 
+        className="flex-1 min-w-0 flex items-start gap-2 overflow-x-hidden pb-0.5 mt-0.5 select-text" 
+        data-no-drag 
+        onDoubleClick={() => {
         setEditingLineIndex(i);
         setEditingText(serializeToRubyMarkup(line.words) || line.text);
         setEditingSecondary(line.secondary || '');

@@ -172,7 +172,7 @@ function AppInner() {
     }
   }, [activeProjectId, location.pathname, navigate]);
 
-  const handleProjectConfirm = useCallback(({ name, description, tags, coverUrl, coverPublicId }) => {
+  const handleProjectConfirm = useCallback(({ name, description, tags }) => {
     if (pendingSetupData) {
       setLines(pendingSetupData.lines);
       setEditorMode(pendingSetupData.editorMode);
@@ -182,8 +182,6 @@ function AppInner() {
     const newMetadata = {
       description: description || '',
       tags: tags || [],
-      coverUrl: coverUrl || '',
-      coverPublicId: coverPublicId || ''
     };
 
     setMediaTitle(newTitle);
@@ -191,11 +189,11 @@ function AppInner() {
     setShowNamingModal(false);
     setPendingSetupData(null);
 
-    triggerImportSave({ title: newTitle, metadata: newMetadata });
+    handleManualSave({ title: newTitle, metadata: newMetadata });
     if (!activeProjectId || location.pathname === '/project/new') {
       navigate('/project/local');
     }
-  }, [pendingSetupData, setLines, setEditorMode, setSyncMode, mediaTitle, setMediaTitle, setProjectMetadata, navigate, activeProjectId, triggerImportSave]);
+  }, [pendingSetupData, mediaTitle, setMediaTitle, setProjectMetadata, navigate, activeProjectId, handleManualSave, projectMetadata]);
 
   // Reset hideEditor when all lines are removed
   if (lines.length === 0 && hideEditor) {
@@ -298,13 +296,7 @@ function AppInner() {
             {isReady && (
               <>
                 <span className="text-zinc-600 shrink-0">/</span>
-                {projectMetadata?.coverUrl && (
-                  <img
-                    src={projectMetadata.coverUrl}
-                    alt="Cover"
-                    className="w-6 h-6 sm:w-7 sm:h-7 rounded object-cover border border-zinc-700 shrink-0"
-                  />
-                )}
+
                 {editingProjectName ? (
                   <Input
                     type="text"
@@ -783,8 +775,7 @@ function AppInner() {
         initialName={mediaTitle}
         initialDescription={projectMetadata?.description}
         initialTags={projectMetadata?.tags}
-        initialCoverUrl={projectMetadata?.coverUrl}
-        initialCoverPublicId={projectMetadata?.coverPublicId}
+        isEditing={true}
       />
 
 

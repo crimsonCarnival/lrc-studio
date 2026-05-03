@@ -16,19 +16,14 @@ export default function ProjectSetupModal({
   initialName = '',
   initialDescription = '',
   initialTags = [],
-  initialCoverUrl = '',
-  initialCoverPublicId = ''
+  isEditing = false
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
-  const [coverUrl, setCoverUrl] = useState('');
-  const [coverPublicId, setCoverPublicId] = useState('');
-  const [coverUploading, setCoverUploading] = useState(false);
   const tagInputRef = useRef(null);
-  const coverInputRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -36,10 +31,8 @@ export default function ProjectSetupModal({
       setDescription(initialDescription || '');
       setTags(initialTags || []);
       setTagInput('');
-      setCoverUrl(initialCoverUrl || '');
-      setCoverPublicId(initialCoverPublicId || '');
     }
-  }, [isOpen, initialName, initialDescription, initialTags, initialCoverUrl, initialCoverPublicId]);
+  }, [isOpen, initialName, initialDescription, initialTags]);
 
   if (!isOpen) return null;
 
@@ -77,45 +70,7 @@ export default function ProjectSetupModal({
     }
   };
 
-  const handleCoverUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast.error(t('setup.invalidImageType'));
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error(t('setup.imageTooLarge'));
-      return;
-    }
-
-    setCoverUploading(true);
-
-    try {
-      const { secure_url, public_id } = await uploadsApi.uploadImage(
-        file,
-        () => uploadsApi.getCoverSignature()
-      );
-      setCoverUrl(secure_url);
-      setCoverPublicId(public_id);
-      toast.success(t('setup.coverUploaded'));
-    } catch (err) {
-      console.error('Cover upload failed:', err);
-      toast.error(t('setup.coverUploadFailed'));
-    } finally {
-      setCoverUploading(false);
-      if (coverInputRef.current) {
-        coverInputRef.current.value = '';
-      }
-    }
-  };
-
-  const handleRemoveCover = () => {
-    setCoverUrl('');
-    setCoverPublicId('');
-  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -124,8 +79,6 @@ export default function ProjectSetupModal({
       name: name.trim(), 
       description: description.trim(), 
       tags: finalTags,
-      coverUrl: coverUrl || null,
-      coverPublicId: coverPublicId || null,
     });
   };
 
@@ -154,7 +107,9 @@ export default function ProjectSetupModal({
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent-purple flex items-center justify-center shadow-lg shadow-primary/20">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
-              <h3 className="text-lg font-bold text-zinc-100">{t('setup.title')}</h3>
+              <h3 className="text-lg font-bold text-zinc-100">
+                {isEditing ? t('setup.settingsTitle') || 'Project Settings' : t('setup.title')}
+              </h3>
             </div>
           </div>
 
@@ -228,88 +183,25 @@ export default function ProjectSetupModal({
               </div>
             </div>
 
-            {/* Cover image */}
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-semibold text-zinc-300">
-                {t('setup.projectCover')}
-              </Label>
-              <div className="flex items-start gap-3">
-                {coverUrl ? (
-                  <div className="relative group">
-                    <img
-                      src={coverUrl}
-                      alt="Cover"
-                      className="w-20 h-20 rounded-lg object-cover border-2 border-zinc-700"
-                    />
-                    {coverUploading && (
-                      <div className="absolute inset-0 rounded-lg bg-black/60 flex items-center justify-center">
-                        <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="w-20 h-20 rounded-lg bg-zinc-800 border-2 border-dashed border-zinc-700 flex items-center justify-center">
-                    <ImageIcon className="w-8 h-8 text-zinc-600" />
-                  </div>
-                )}
-                <div className="flex flex-col gap-2 flex-1">
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => coverInputRef.current?.click()}
-                      disabled={coverUploading}
-                      className="gap-2"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      {coverUrl ? t('setup.changeCover') : t('setup.uploadCover')}
-                    </Button>
-                    {coverUrl && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={handleRemoveCover}
-                        disabled={coverUploading}
-                        className="gap-2 text-red-400 hover:text-red-300 border-red-900/20"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1.5 mt-1">
-                    <Input
-                      type="url"
-                      placeholder={t('setup.coverUrlPlaceholder') || 'Or paste image URL...'}
-                      value={coverUrl && !coverPublicId ? coverUrl : ''}
-                      onChange={(e) => {
-                        setCoverUrl(e.target.value);
-                        setCoverPublicId('');
-                      }}
-                      className="h-8 text-xs bg-zinc-800/50 border-zinc-700/60"
-                    />
-                  </div>
-                  <p className="text-xs text-zinc-500">
-                    {t('setup.coverHint')}
-                  </p>
-                </div>
-                <input
-                  ref={coverInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleCoverUpload}
-                  className="hidden"
-                />
-              </div>
-            </div>
 
-            <Button
-              type="submit"
-              className="w-full bg-primary hover:bg-primary-dim text-zinc-950 font-semibold text-sm rounded-xl h-10 mt-1"
-            >
-              {t('setup.startProject')}
-            </Button>
+
+            <div className="flex gap-3 mt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700 font-semibold text-sm rounded-xl h-10"
+              >
+                {t('setup.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                disabled={!name.trim()}
+                className="flex-1 bg-primary hover:bg-primary-dim text-zinc-950 font-semibold text-sm rounded-xl h-10"
+              >
+                {isEditing ? t('setup.saveChanges') : t('setup.startToSync')}
+              </Button>
+            </div>
           </form>
         </div>
       </div>

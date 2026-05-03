@@ -129,11 +129,7 @@ export default function UploadDetailView({ onBack }) {
                     <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     <div className="flex items-start gap-3 relative z-10">
                        <div className="w-10 h-10 rounded-lg bg-zinc-800 border border-zinc-700 flex items-center justify-center overflow-hidden flex-shrink-0">
-                         {project.coverUrl ? (
-                           <img src={project.coverUrl} alt="Cover" className="w-full h-full object-cover" />
-                         ) : (
-                           <Music2 className="w-5 h-5 text-zinc-500" />
-                         )}
+                         <Music2 className="w-5 h-5 text-zinc-500" />
                        </div>
                        <div className="flex-1 min-w-0">
                          <h4 className="text-sm font-bold text-zinc-200 truncate group-hover:text-primary transition-colors">{project.title || t('project.untitled', 'Untitled')}</h4>

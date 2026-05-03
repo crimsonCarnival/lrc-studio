@@ -189,11 +189,16 @@ export function usePreview({ lines, setLines, playbackPosition, playerRef, durat
   };
 
   const applyIncludeFlags = (inputLines) => {
-    let result = inputLines;
-    if (!includeWordTimestamps) {
-      result = result.map(l => ({ ...l, words: undefined }));
-    }
-    return result;
+    return inputLines.map(l => {
+      const newLine = { ...l };
+      if (!includeWordTimestamps && newLine.words) {
+        // If we don't want word timestamps, but we HAVE words,
+        // we must keep the words if they have readings (for furigana export).
+        // We just nullify the times so they don't show up as <mm:ss.xx>
+        newLine.words = newLine.words.map(w => ({ ...w, time: null }));
+      }
+      return newLine;
+    });
   };
 
   const handleExport = async () => {

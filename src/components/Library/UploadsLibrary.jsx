@@ -163,17 +163,7 @@ export default function UploadsLibrary({ onSelect, onBack }) {
             >
               {/* Thumbnail or source icon */}
               <div className="w-9 h-9 rounded-lg bg-zinc-700/50 flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden">
-                {upload.thumbnailUrl ? (
-                  <img 
-                    src={upload.thumbnailUrl} 
-                    alt={upload.title || 'Thumbnail'} 
-                    className="w-full h-full object-cover"
-                    onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-                  />
-                ) : null}
-                <div className={upload.thumbnailUrl ? 'hidden' : 'flex'} style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                  <SourceIcon source={upload.source} />
-                </div>
+                <SourceIcon source={upload.source} />
               </div>
 
               {/* Info */}

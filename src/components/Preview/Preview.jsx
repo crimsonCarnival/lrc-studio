@@ -20,7 +20,7 @@ import { Eye, Share2, X, Lock, LockOpen, BookOpen, Plus } from 'lucide-react';
 export default function Preview(props) {
   // Accept activeProjectId and project as props
   const { activeProjectId, project, projectMetadata } = props;
-  const coverUrl = projectMetadata?.coverUrl || project?.metadata?.coverUrl;
+
   // Privacy state for sharing (default public)
   const [isPublic, setIsPublic] = useState(project?.public ?? true);
   // Sync privacy state with project prop

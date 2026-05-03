@@ -309,23 +309,13 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
                           className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg border border-zinc-700/40 hover:border-primary/40 hover:bg-zinc-800/60 transition-all group text-left w-full cursor-pointer"
                         >
                           <div className="w-7 h-7 rounded-md bg-zinc-800 border border-zinc-700/60 flex items-center justify-center shrink-0 group-hover:border-primary/40 transition-colors overflow-hidden">
-                            {upload.thumbnailUrl ? (
-                              <img
-                                src={upload.thumbnailUrl}
-                                alt={upload.title || 'Thumbnail'}
-                                className="w-full h-full object-cover"
-                                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-                              />
-                            ) : null}
-                            <div className={upload.thumbnailUrl ? 'hidden' : 'flex'} style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                              {upload.source === 'youtube' ? (
-                                <Video className="w-3.5 h-3.5 text-red-400" />
-                              ) : upload.source === 'spotify' ? (
-                                <SpotifyIcon className="w-3.5 h-3.5 text-green-400" />
-                              ) : (
-                                <Cloud className="w-3.5 h-3.5 text-zinc-400 group-hover:text-primary transition-colors" />
-                              )}
-                            </div>
+                            {upload.source === 'youtube' ? (
+                              <Video className="w-3.5 h-3.5 text-red-400" />
+                            ) : upload.source === 'spotify' ? (
+                              <SpotifyIcon className="w-3.5 h-3.5 text-green-400" />
+                            ) : (
+                              <Cloud className="w-3.5 h-3.5 text-zinc-400 group-hover:text-primary transition-colors" />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-zinc-300 group-hover:text-zinc-100 truncate transition-colors">

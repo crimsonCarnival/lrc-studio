@@ -106,11 +106,7 @@ export default function Library({ onOpenProject, onBack }) {
             >
               {/* Cover or Source icon */}
               <div className="w-9 h-9 rounded-lg bg-zinc-700/50 flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden">
-                {project.metadata?.coverUrl ? (
-                  <img src={project.metadata.coverUrl} alt="Cover" className="w-full h-full object-cover" />
-                ) : (
-                  <SourceIcon source={project.upload?.source} />
-                )}
+                <SourceIcon source={project.upload?.source} />
               </div>
 
               {/* Info */}
@@ -186,8 +182,8 @@ export default function Library({ onOpenProject, onBack }) {
         onClose={() => setEditingProject(null)}
         onConfirm={async (data) => {
           try {
-            const { title, description, tags, coverUrl, coverPublicId } = data;
-            const updatedMetadata = { ...editingProject.metadata, description, tags, coverUrl, coverPublicId };
+            const { title, description, tags } = data;
+            const updatedMetadata = { ...editingProject.metadata, description, tags };
             await projects.patch(editingProject.projectId, {
               title,
               metadata: updatedMetadata
@@ -206,8 +202,7 @@ export default function Library({ onOpenProject, onBack }) {
         initialName={editingProject?.title || ''}
         initialDescription={editingProject?.metadata?.description || ''}
         initialTags={editingProject?.metadata?.tags || []}
-        initialCoverUrl={editingProject?.metadata?.coverUrl || ''}
-        initialCoverPublicId={editingProject?.metadata?.coverPublicId || ''}
+        isEditing={true}
       />
     </div>
   );

@@ -11,6 +11,7 @@ export default function EditorPasteArea({
   fileInputRef,
   handleFileUpload,
   handleUrlImport,
+  onCancel,
 }) {
   const { t } = useTranslation();
   const [urlInput, setUrlInput] = useState('');
@@ -41,14 +42,25 @@ export default function EditorPasteArea({
         className="flex-1 bg-zinc-800/40 border-zinc-700/50 text-zinc-200 placeholder:text-zinc-600 resize-none focus:border-primary/50 focus:ring-primary/25 font-mono leading-relaxed min-h-0"
       />
       <div className="flex flex-col gap-2 sm:gap-3">
-        <Button
-          id="confirm-lyrics-btn"
-          onClick={handleConfirmLyrics}
-          disabled={!rawText.trim()}
-          className="w-full py-2.5 sm:py-3 bg-primary hover:bg-primary-dim text-zinc-950 font-semibold rounded-lg sm:rounded-xl hover:shadow-lg hover:shadow-primary/20 h-auto text-sm"
-        >
-          {t('editor.startSyncing')}
-        </Button>
+        <div className="flex gap-2">
+          {onCancel && (
+            <Button
+              variant="outline"
+              onClick={onCancel}
+              className="flex-1 py-2.5 sm:py-3 bg-zinc-800 border-zinc-700 hover:bg-zinc-700 hover:border-zinc-600 text-zinc-300 font-semibold rounded-lg sm:rounded-xl h-auto text-sm"
+            >
+              {t('common.cancel') || 'Cancel'}
+            </Button>
+          )}
+          <Button
+            id="confirm-lyrics-btn"
+            onClick={handleConfirmLyrics}
+            disabled={!rawText.trim()}
+            className={`${onCancel ? 'flex-[2]' : 'w-full'} py-2.5 sm:py-3 bg-primary hover:bg-primary-dim text-zinc-950 font-semibold rounded-lg sm:rounded-xl hover:shadow-lg hover:shadow-primary/20 h-auto text-sm`}
+          >
+            {t('editor.startSyncing')}
+          </Button>
+        </div>
         <div className="flex gap-2 sm:gap-3">
           <input
             type="file"

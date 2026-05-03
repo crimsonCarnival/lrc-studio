@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { serializeToRubyMarkup } from '../../../utils/furigana';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -126,7 +127,7 @@ export default function EditorToolbar({
               variant="ghost"
               size="icon-sm"
               onClick={() => {
-                setRawText(lines.map(l => l.text).join('\n'));
+                setRawText(lines.map(l => serializeToRubyMarkup(l.words) || l.text).join('\n'));
                 setSyncMode(false);
               }}
               className="text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
@@ -304,7 +305,7 @@ export default function EditorToolbar({
             variant="ghost"
             size="icon-sm"
             onClick={() => {
-              setRawText(lines.map(l => l.text).join('\n'));
+              setRawText(lines.map(l => serializeToRubyMarkup(l.words) || l.text).join('\n'));
               setSyncMode(false);
             }}
             className="text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 flex-shrink-0"

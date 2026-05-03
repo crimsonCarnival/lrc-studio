@@ -250,13 +250,11 @@ export function useAppState(user) {
             setProjectMetadata({
               description: project.metadata.description || '',
               tags: project.metadata.tags || [],
-              coverUrl: project.metadata.coverUrl || '',
-              coverPublicId: project.metadata.coverPublicId || '',
             });
           }
           updateServerSnapshot({
             title: project.title || '',
-            metadata: project.metadata || { description: '', tags: [], coverUrl: '', coverPublicId: '' },
+            metadata: project.metadata || { description: '', tags: [] },
             state: {
               syncMode: project.state?.syncMode ?? true,
               activeLineIndex: project.state?.activeLineIndex || 0,
@@ -443,6 +441,14 @@ export function useAppState(user) {
   const handleManualSave = useCallback(async (overrides = {}) => {
     const key = isSharedProjectRef.current ? SHARED_PROJECT_KEY : PROJECT_KEY;
     const payload = buildProjectPayload();
+    
+    // Prioritize overrides for metadata and title to avoid race conditions
+    const finalMetadata = overrides.metadata !== undefined ? overrides.metadata : projectMetadata;
+    const finalTitle = overrides.title !== undefined ? overrides.title : (mediaTitle || '');
+    
+    payload.metadata = finalMetadata;
+    payload.title = finalTitle;
+
 
     console.log('[Manual Save] Starting manual save...');
     console.log('[Manual Save] Lines count:', payload.lines?.length);
@@ -496,8 +502,8 @@ export function useAppState(user) {
         timezone: payload.timezone,
         utcOffset: payload.utcOffset,
       };
-      const title = overrides?.title !== undefined ? overrides.title : (mediaTitle || '');
-      const metadata = overrides?.metadata !== undefined ? overrides.metadata : projectMetadata;
+      const title = finalTitle;
+      const metadata = finalMetadata;
       const patchData = buildProjectPatch({
         prevSnapshot: lastServerSnapshotRef.current,
         title,
@@ -507,6 +513,10 @@ export function useAppState(user) {
         editorMode,
         lines: payload.lines,
       });
+
+      // ALWAYS include title and metadata if they were explicitly provided
+      if (overrides.title !== undefined) patchData.title = overrides.title;
+      if (overrides.metadata !== undefined) patchData.metadata = overrides.metadata;
 
       console.log('[Manual Save] Patching project:', activeProjectId, 'with data:', patchData);
       if (Object.keys(patchData).length > 0) {
@@ -550,7 +560,7 @@ export function useAppState(user) {
             source: 'youtube',
             youtubeUrl: payload.ytUrl,
             fileName: '',
-            title: mediaTitle || '',
+            title: finalTitle,
             duration: duration || null,
           });
           uploadIdToSave = upload.id;
@@ -560,8 +570,8 @@ export function useAppState(user) {
       }
 
       const createData = {
-        title: mediaTitle || '',
-        metadata: projectMetadata,
+        title: finalTitle,
+        metadata: finalMetadata,
         lyrics: { editorMode, lines: payload.lines },
         state: {
           syncMode,
@@ -601,13 +611,20 @@ export function useAppState(user) {
 
   // ——— Save-after-import: fires after state settles from an import ———
   const [importTick, setImportTick] = useState(0);
+  const [importPayload, setImportPayload] = useState(null);
   const manualSaveRef = useRef(null);
   useEffect(() => { manualSaveRef.current = handleManualSave; });
   useEffect(() => {
-    if (importTick === 0) return;
-    manualSaveRef.current?.();
+    if (importTick > 0) {
+      manualSaveRef.current?.(importPayload || {});
+      setImportPayload(null);
+    }
   }, [importTick]);
-  const triggerImportSave = useCallback(() => setImportTick((t) => t + 1), []);
+
+  const triggerImportSave = useCallback((payload = null) => {
+    if (payload) setImportPayload(payload);
+    setImportTick((t) => t + 1);
+  }, []);
 
   // ——— Fork from shared project on first user edit ———
   const forkFromShared = useCallback(() => {

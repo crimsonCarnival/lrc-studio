@@ -363,12 +363,8 @@ export const uploads = {
     return request('/uploads/avatar-signature', { method: 'POST' });
   },
 
-  async getCoverSignature() {
-    return request('/uploads/cover-signature', { method: 'POST' });
-  },
-
   /**
-   * Upload an image to Cloudinary (for avatars or covers).
+   * Upload an image to Cloudinary (for avatars).
    * Returns { secure_url, public_id }.
    */
   async uploadImage(file, signatureGetter) {

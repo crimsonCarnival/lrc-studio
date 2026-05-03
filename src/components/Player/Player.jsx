@@ -330,6 +330,7 @@ const Player = forwardRef(function Player(
             <span className="uppercase shrink-0 text-xs sm:text-sm flex items-center gap-1.5"><Headphones className="w-3.5 h-3.5" />{t('player.title')}</span>
             {hasMedia && mediaTitle && (
               <div className="flex items-center gap-2 px-1.5 py-0.5 rounded text-xs min-w-0 flex-1">
+                <Music2 className="w-2.5 h-2.5 text-primary shrink-0" strokeWidth={2.5} />
                 <span className="text-primary normal-case tracking-normal truncate">{mediaTitle}</span>
               </div>
             )}
@@ -551,21 +552,11 @@ const Player = forwardRef(function Player(
                           className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-left hover:bg-zinc-700/60 transition-colors"
                         >
                           <div className="w-8 h-8 rounded flex-shrink-0 overflow-hidden bg-zinc-700/50 flex items-center justify-center">
-                            {upload.thumbnailUrl ? (
-                              <img
-                                src={upload.thumbnailUrl}
-                                alt={upload.title || 'Thumbnail'}
-                                className="w-full h-full object-cover"
-                                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-                              />
-                            ) : null}
-                            <div className={upload.thumbnailUrl ? 'hidden' : 'flex'} style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                              {upload.source === 'youtube'
-                                ? <Video className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                                : upload.source === 'spotify'
-                                  ? <SpotifyIcon className="w-3.5 h-3.5 text-green-400 shrink-0" />
-                                  : <Cloud className="w-3.5 h-3.5 text-blue-400 shrink-0" />}
-                            </div>
+                            {upload.source === 'youtube'
+                              ? <Video className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                              : upload.source === 'spotify'
+                                ? <SpotifyIcon className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                                : <Cloud className="w-3.5 h-3.5 text-blue-400 shrink-0" />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-zinc-200 truncate">
@@ -805,21 +796,11 @@ const Player = forwardRef(function Player(
                             className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-left hover:bg-zinc-700/60 transition-colors"
                           >
                             <div className="w-8 h-8 rounded flex-shrink-0 overflow-hidden bg-zinc-700/50 flex items-center justify-center">
-                              {upload.thumbnailUrl ? (
-                                <img
-                                  src={upload.thumbnailUrl}
-                                  alt={upload.title || 'Thumbnail'}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
-                                />
-                              ) : null}
-                              <div className={upload.thumbnailUrl ? 'hidden' : 'flex'} style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                                {upload.source === 'youtube'
-                                  ? <Video className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                                  : upload.source === 'spotify'
-                                    ? <SpotifyIcon className="w-3.5 h-3.5 text-green-400 shrink-0" />
-                                    : <Cloud className="w-3.5 h-3.5 text-blue-400 shrink-0" />}
-                              </div>
+                              {upload.source === 'youtube'
+                                ? <Video className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                                : upload.source === 'spotify'
+                                  ? <SpotifyIcon className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                                  : <Cloud className="w-3.5 h-3.5 text-blue-400 shrink-0" />}
                             </div>
                             <span className="text-xs font-medium text-zinc-200 truncate">
                               {upload.title || upload.fileName || upload.youtubeUrl || t('uploads.untitled')}
