@@ -184,6 +184,8 @@ export default function AdminDashboard() {
                   <th className="p-4 font-semibold text-zinc-400 text-xs uppercase tracking-wider">{t('admin.table.status')}</th>
                   <th className="p-4 font-semibold text-zinc-400 text-xs uppercase tracking-wider">{t('admin.table.appeal')}</th>
                   <th className="p-4 font-semibold text-zinc-400 text-xs uppercase tracking-wider">{t('admin.table.joined')}</th>
+                  <th className="p-4 font-semibold text-zinc-400 text-xs uppercase tracking-wider">{t('admin.table.ip')}</th>
+                  <th className="p-4 font-semibold text-zinc-400 text-xs uppercase tracking-wider">{t('admin.table.flags')}</th>
                   <th className="p-4 font-semibold text-zinc-400 text-xs uppercase tracking-wider text-right">{t('admin.table.actions')}</th>
                 </tr>
               </thead>
@@ -192,6 +194,8 @@ export default function AdminDashboard() {
                   const userId = user.id || user._id?.toString();
                   const currentUserId = currentUser?.id || currentUser?._id?.toString();
                   const isSelf = userId === currentUserId;
+                  const spotifyConnected = !!user.spotify?.spotifyId;
+                  
                   return (
                     <tr key={user.id || user._id} className={`transition-colors ${user.isDeleted ? 'opacity-50 bg-red-950/20' : 'hover:bg-zinc-800/30'}`}>
                       <td className="p-4">
@@ -256,6 +260,28 @@ export default function AdminDashboard() {
                       </td>
                       <td className="p-4 text-xs text-zinc-400">
                         {new Date(user.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="p-4 font-mono text-[10px] text-zinc-500">
+                        {user.lastIp || '—'}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          {user.isVerified && (
+                            <div className="text-emerald-500" title={t('admin.table.verified')}>
+                              <CheckCircle2 className="w-4 h-4" />
+                            </div>
+                          )}
+                          {spotifyConnected && (
+                            <div className={`${user.spotify?.isPremium ? 'text-emerald-400' : 'text-zinc-500'}`} title={t('admin.table.spotify')}>
+                              <Activity className="w-4 h-4" />
+                            </div>
+                          )}
+                          {user.isDeleted && (
+                            <div className="text-red-500" title={t('admin.table.deleted')}>
+                              <Trash2 className="w-4 h-4" />
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 text-right">
                         {!isSelf && (
