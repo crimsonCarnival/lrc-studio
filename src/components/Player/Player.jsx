@@ -330,11 +330,6 @@ const Player = forwardRef(function Player(
             <span className="uppercase shrink-0 text-xs sm:text-sm flex items-center gap-1.5"><Headphones className="w-3.5 h-3.5" />{t('player.title')}</span>
             {hasMedia && mediaTitle && (
               <div className="flex items-center gap-2 px-1.5 py-0.5 rounded text-xs min-w-0 flex-1">
-                {projectMetadata?.coverUrl ? (
-                  <img src={projectMetadata.coverUrl} alt="Cover" className="w-5 h-5 sm:w-6 sm:h-6 rounded-md object-cover border border-zinc-700/50 shadow-sm shrink-0" />
-                ) : (
-                  <Music2 className="w-2.5 h-2.5 text-primary shrink-0" strokeWidth={2.5} />
-                )}
                 <span className="text-primary normal-case tracking-normal truncate">{mediaTitle}</span>
               </div>
             )}
@@ -727,8 +722,8 @@ const Player = forwardRef(function Player(
                     }
                   }}
                   className={`rounded-full flex-shrink-0 ${loopA != null && loopB != null
-                      ? 'bg-accent-purple/20 text-accent-purple hover:bg-accent-purple/30'
-                      : 'bg-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700'
+                    ? 'bg-accent-purple/20 text-accent-purple hover:bg-accent-purple/30'
+                    : 'bg-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700'
                     }`}
                 >
                   <Repeat className="w-4 h-4" />
