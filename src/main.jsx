@@ -17,7 +17,7 @@ import { Spinner } from './components/ui/skeleton'
 import './i18n.js'
 
 const AuthPage = lazy(() => import('./components/Auth/AuthPage.jsx'));
-const SharedProjectViewer = lazy(() => import('./components/Shared/SharedProjectViewer.jsx'));
+const SharedProjectViewer = lazy(() => import('./components/shared/SharedProjectViewer.jsx'));
 
 // Wrapper for SharedProjectViewer to get the id param
 function SharedProjectRoute() {
