@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { SettingsProvider } from '../../contexts/SettingsContext';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Spinner } from '@/components/ui/skeleton';
@@ -19,6 +20,8 @@ import { LogIn, UserPlus, Music2, Copy, Check } from 'lucide-react';
  */
 function SharedProjectViewerInner({ projectId }) {
   const { t, i18n } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const startTime = parseInt(searchParams.get('s')) || 0;
 
   // ── Minimal state ──
   const [lines, setLines] = useState([]);
@@ -161,7 +164,7 @@ function SharedProjectViewerInner({ projectId }) {
             onYtUrlChange={() => { }}
             onTitleChange={setMediaTitle}
             initialYtUrl={initialYtUrl}
-            initialSeek={0}
+            initialSeek={startTime}
             initialSpeed={1}
             lines={lines}
             playbackPosition={playbackPosition}

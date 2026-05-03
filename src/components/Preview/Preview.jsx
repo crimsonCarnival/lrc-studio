@@ -90,7 +90,7 @@ export default function Preview(props) {
     handleCopy,
   } = usePreview(props);
 
-  const { lines, playbackPosition, exportToUrl, isSharedProject, sharedReadOnly, setSharedReadOnly, editorMode, shareModal, setShareModal, hasMedia } = props;
+  const { lines, playbackPosition, exportToUrl, isSharedProject, sharedReadOnly, setSharedReadOnly, editorMode, shareModal, setShareModal, hasMedia, viewerMode } = props;
 
   const shareTriggerRef = useRef(null);
   const sharePanelRef = useRef(null);
@@ -145,26 +145,32 @@ export default function Preview(props) {
               )}
               {/* Share button */}
               <Tip content={shareModal ? t('share.close') : (isSharedProject ? t('share.viewingShared') : t('app.shareProject'))}>
-                <Button
-                  ref={shareTriggerRef}
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={handleShareToggle}
-                  className={`flex-shrink-0 transition-colors ${isSharedProject
-                      ? 'text-primary bg-primary/10 hover:bg-primary/20'
-                      : shareModal
-                        ? 'bg-zinc-800 text-zinc-100 hover:bg-zinc-700'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
-                    }`}
-                >
-                  {shareModal
-                    ? <X className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={2} />
-                    : <Share2 className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={1.8} />
-                  }
-                </Button>
+                {viewerMode ? (
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg text-primary bg-primary/10">
+                    <Share2 className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={1.8} />
+                  </div>
+                ) : (
+                  <Button
+                    ref={shareTriggerRef}
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={handleShareToggle}
+                    className={`flex-shrink-0 transition-colors ${isSharedProject
+                        ? 'text-primary bg-primary/10 hover:bg-primary/20'
+                        : shareModal
+                          ? 'bg-zinc-800 text-zinc-100 hover:bg-zinc-700'
+                          : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                      }`}
+                  >
+                    {shareModal
+                      ? <X className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={2} />
+                      : <Share2 className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={1.8} />
+                    }
+                  </Button>
+                )}
               </Tip>
               {/* Lock/unlock toggle for shared projects */}
-              {isSharedProject && (
+              {isSharedProject && !viewerMode && (
                 <Tip content={sharedReadOnly ? t('share.readOnlyTitle') : t('share.editingTitle')}>
                   <Button
                     variant="ghost"
@@ -214,31 +220,33 @@ export default function Preview(props) {
               </div>
 
               {/* Menu */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 flex-shrink-0"
-                  >
-                    <Plus className="w-4 sm:w-5 h-4 sm:h-5" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-36 sm:w-48" align="end">
-                  <PopoverItem
-                    onClick={() => { setPastingType('secondary'); setPasteText(lines.map(l => l.secondary || '').join('\n')); }}
-                    className="sm:text-sm"
-                  >
-                    {t('preview.secondaryLyrics')}
-                  </PopoverItem>
-                  <PopoverItem
-                    onClick={() => { setPastingType('translation'); setPasteText(lines.map(l => l.translation || '').join('\n')); }}
-                    className="sm:text-sm"
-                  >
-                    {t('preview.translation')}
-                  </PopoverItem>
-                </PopoverContent>
-              </Popover>
+              {!viewerMode && !sharedReadOnly && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 flex-shrink-0"
+                    >
+                      <Plus className="w-4 sm:w-5 h-4 sm:h-5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-36 sm:w-48" align="end">
+                    <PopoverItem
+                      onClick={() => { setPastingType('secondary'); setPasteText(lines.map(l => l.secondary || '').join('\n')); }}
+                      className="sm:text-sm"
+                    >
+                      {t('preview.secondaryLyrics')}
+                    </PopoverItem>
+                    <PopoverItem
+                      onClick={() => { setPastingType('translation'); setPasteText(lines.map(l => l.translation || '').join('\n')); }}
+                      className="sm:text-sm"
+                    >
+                      {t('preview.translation')}
+                    </PopoverItem>
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
           )}
         </div>
