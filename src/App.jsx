@@ -13,7 +13,7 @@ const SetupScreen = lazy(() => import('./components/Setup/SetupScreen'));
 const Home = lazy(() => import('./components/Home/Home'));
 const AdminDashboard = lazy(() => import('./components/Admin/AdminDashboard'));
 import ProjectSetupModal from './components/Setup/ProjectSetupModal';
-import BannedScreen from './components/Shared/BannedScreen';
+import BannedScreen from './components/shared/BannedScreen';
 import { useAppState } from './hooks/useAppState';
 import { useSettings } from './contexts/useSettings';
 import { useAuthContext } from './contexts/useAuthContext';
