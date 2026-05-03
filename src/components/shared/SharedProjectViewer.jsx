@@ -146,8 +146,9 @@ function SharedProjectViewerInner({ projectId }) {
           shareModal={null}
           setShareModal={() => { }}
           hasMedia={hasMedia}
-          activeProjectId={null}
-          project={null}
+          activeProjectId={projectId}
+          project={projectData}
+          projectMetadata={projectData?.metadata}
           viewerMode={true}
         />
       </div>
@@ -170,6 +171,7 @@ function SharedProjectViewerInner({ projectId }) {
             playbackPosition={playbackPosition}
             syncMode={false}
             onCloudinaryUpload={() => { }}
+            projectMetadata={projectData?.metadata}
             viewerMode={true}
           />
         </div>

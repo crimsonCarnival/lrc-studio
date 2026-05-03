@@ -22,7 +22,7 @@ import toast from 'react-hot-toast';
 const ALL_SPEED_PRESETS = [0.25, 0.5, 0.75, 1, 1.25, 1.5];
 
 const Player = forwardRef(function Player(
-  { onTimeUpdate, onDurationChange, onMediaChange, playerRef: _legacyRef, mediaTitle, onTitleChange, initialYtUrl, onYtUrlChange, initialSeek, initialSpeed, lines, playbackPosition, syncMode = false, onCloudinaryUpload },
+  { onTimeUpdate, onDurationChange, onMediaChange, playerRef: _legacyRef, mediaTitle, onTitleChange, initialYtUrl, onYtUrlChange, initialSeek, initialSpeed, lines, playbackPosition, syncMode = false, onCloudinaryUpload, projectMetadata },
   ref,
 ) {
   const { t } = useTranslation();
@@ -329,8 +329,12 @@ const Player = forwardRef(function Player(
           <h2 className="text-xs sm:text-sm font-semibold tracking-widest text-zinc-400 flex items-center gap-2 overflow-hidden flex-1 pb-0.5 min-w-0">
             <span className="uppercase shrink-0 text-xs sm:text-sm flex items-center gap-1.5"><Headphones className="w-3.5 h-3.5" />{t('player.title')}</span>
             {hasMedia && mediaTitle && (
-              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs min-w-0 flex-1">
-                <Music2 className="w-2.5 h-2.5 text-primary shrink-0" strokeWidth={2.5} />
+              <div className="flex items-center gap-2 px-1.5 py-0.5 rounded text-xs min-w-0 flex-1">
+                {projectMetadata?.coverUrl ? (
+                  <img src={projectMetadata.coverUrl} alt="Cover" className="w-5 h-5 sm:w-6 sm:h-6 rounded-md object-cover border border-zinc-700/50 shadow-sm shrink-0" />
+                ) : (
+                  <Music2 className="w-2.5 h-2.5 text-primary shrink-0" strokeWidth={2.5} />
+                )}
                 <span className="text-primary normal-case tracking-normal truncate">{mediaTitle}</span>
               </div>
             )}

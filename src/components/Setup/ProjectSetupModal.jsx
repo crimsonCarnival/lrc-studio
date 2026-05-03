@@ -278,6 +278,18 @@ export default function ProjectSetupModal({
                       </Button>
                     )}
                   </div>
+                  <div className="flex flex-col gap-1.5 mt-1">
+                    <Input
+                      type="url"
+                      placeholder={t('setup.coverUrlPlaceholder') || 'Or paste image URL...'}
+                      value={coverUrl && !coverPublicId ? coverUrl : ''}
+                      onChange={(e) => {
+                        setCoverUrl(e.target.value);
+                        setCoverPublicId('');
+                      }}
+                      className="h-8 text-xs bg-zinc-800/50 border-zinc-700/60"
+                    />
+                  </div>
                   <p className="text-xs text-zinc-500">
                     {t('setup.coverHint')}
                   </p>

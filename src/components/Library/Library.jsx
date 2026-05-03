@@ -104,9 +104,13 @@ export default function Library({ onOpenProject, onBack }) {
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenProject(project.projectId); } }}
               className="w-full group relative flex items-start gap-3 p-3 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/80 border border-zinc-700/40 hover:border-zinc-600/60 transition-all duration-150 text-left cursor-pointer"
             >
-              {/* Source icon */}
-              <div className="w-9 h-9 rounded-lg bg-zinc-700/50 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <SourceIcon source={project.upload?.source} />
+              {/* Cover or Source icon */}
+              <div className="w-9 h-9 rounded-lg bg-zinc-700/50 flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden">
+                {project.metadata?.coverUrl ? (
+                  <img src={project.metadata.coverUrl} alt="Cover" className="w-full h-full object-cover" />
+                ) : (
+                  <SourceIcon source={project.upload?.source} />
+                )}
               </div>
 
               {/* Info */}

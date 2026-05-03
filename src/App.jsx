@@ -165,6 +165,13 @@ function AppInner() {
     setShowNamingModal(true);
   }, []);
 
+  // Sync URL from /project/local to real project ID after server creation
+  useEffect(() => {
+    if (activeProjectId && location.pathname === '/project/local') {
+      navigate(`/project/${activeProjectId}`, { replace: true });
+    }
+  }, [activeProjectId, location.pathname, navigate]);
+
   const handleProjectConfirm = useCallback(({ name, description, tags, coverUrl, coverPublicId }) => {
     if (pendingSetupData) {
       setLines(pendingSetupData.lines);
@@ -185,7 +192,9 @@ function AppInner() {
     setPendingSetupData(null);
 
     triggerImportSave({ title: newTitle, metadata: newMetadata });
-    if (!activeProjectId) navigate('/project/local');
+    if (!activeProjectId || location.pathname === '/project/new') {
+      navigate('/project/local');
+    }
   }, [pendingSetupData, setLines, setEditorMode, setSyncMode, mediaTitle, setMediaTitle, setProjectMetadata, navigate, activeProjectId, triggerImportSave]);
 
   // Reset hideEditor when all lines are removed
@@ -660,6 +669,7 @@ function AppInner() {
                           hasMedia={hasMedia}
                           activeProjectId={activeProjectId}
                           project={pendingProject || null}
+                          projectMetadata={projectMetadata}
                         />
                       </Suspense>
                     </div>
@@ -712,6 +722,7 @@ function AppInner() {
               initialYtUrl={restoredYtUrl}
               initialSeek={restoredPosition}
               initialSpeed={restoredSpeed}
+              projectMetadata={projectMetadata}
               lines={lines}
               playbackPosition={playbackPosition}
               syncMode={syncMode}

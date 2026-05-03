@@ -19,7 +19,8 @@ import { Eye, Share2, X, Lock, LockOpen, BookOpen, Plus } from 'lucide-react';
 
 export default function Preview(props) {
   // Accept activeProjectId and project as props
-  const { activeProjectId, project } = props;
+  const { activeProjectId, project, projectMetadata } = props;
+  const coverUrl = projectMetadata?.coverUrl || project?.metadata?.coverUrl;
   // Privacy state for sharing (default public)
   const [isPublic, setIsPublic] = useState(project?.public ?? true);
   // Sync privacy state with project prop
@@ -127,7 +128,14 @@ export default function Preview(props) {
         {/* Header */}
         <div className="flex items-center justify-between mb-2 sm:mb-4 gap-2 sm:gap-4 relative z-raised">
           <h2 className="text-xs sm:text-sm font-semibold tracking-widest text-zinc-400 flex items-center gap-2 overflow-hidden flex-1 pb-1">
-            <span className="uppercase shrink-0 text-xs sm:text-sm flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" />{t('preview.title')}</span>
+            <span className="uppercase shrink-0 text-xs sm:text-sm flex items-center gap-1.5">
+              {coverUrl ? (
+                <img src={coverUrl} alt="Cover" className="w-5 h-5 sm:w-6 sm:h-6 rounded-md object-cover border border-zinc-700/50 shadow-sm" />
+              ) : (
+                <Eye className="w-3.5 h-3.5" />
+              )}
+              {t('preview.title')}
+            </span>
           </h2>
           {hasSyncedLines && (
             <div className="relative flex items-center gap-1 text-zinc-300">

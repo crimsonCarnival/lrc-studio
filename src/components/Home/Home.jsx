@@ -167,9 +167,9 @@ export default function Home() {
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-accent-purple/5 group-hover:from-primary/10 group-hover:to-accent-purple/10 transition-colors" />
                     <div className="relative flex items-center gap-6 p-4 sm:p-6 bg-zinc-950/40 rounded-xl">
-                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
-                        {lastProject.metadata?.coverUrl ? (
-                          <img src={lastProject.metadata.coverUrl} alt="Cover" className="w-full h-full object-cover" />
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0 overflow-hidden shadow-inner relative">
+                        {lastProject.metadata?.coverUrl || lastProject.coverUrl ? (
+                          <img src={lastProject.metadata?.coverUrl || lastProject.coverUrl} alt="Cover" className="w-full h-full object-cover" />
                         ) : (
                           <Music2 className="w-8 h-8 text-primary/50" />
                         )}
@@ -226,8 +226,8 @@ export default function Home() {
                       >
                         <div className="flex items-start gap-4 mb-4">
                           <div className="w-12 h-12 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0 overflow-hidden relative">
-                            {project.metadata?.coverUrl ? (
-                              <img src={project.metadata.coverUrl} alt="Cover" className="w-full h-full object-cover" />
+                            {project.metadata?.coverUrl || project.coverUrl ? (
+                              <img src={project.metadata?.coverUrl || project.coverUrl} alt="Cover" className="w-full h-full object-cover" />
                             ) : (
                               <FileText className="w-5 h-5 text-zinc-500" />
                             )}
