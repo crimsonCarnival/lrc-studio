@@ -653,6 +653,7 @@ export default {
       "projectCover": "Cover image",
       "uploadCover": "Upload cover",
       "changeCover": "Change",
+      "coverUrlPlaceholder": "Or paste image URL...",
       "coverHint": "JPG, PNG, or GIF. Max 5MB.",
       "coverUploaded": "Cover uploaded",
       "coverUploadFailed": "Failed to upload cover",

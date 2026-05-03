@@ -653,6 +653,7 @@ export default {
       "projectCover": "Imagen de portada",
       "uploadCover": "Subir portada",
       "changeCover": "Cambiar",
+      "coverUrlPlaceholder": "O pega la URL de la imagen...",
       "coverHint": "JPG, PNG o GIF. Máx 5MB.",
       "coverUploaded": "Portada subida",
       "coverUploadFailed": "Error al subir la portada",
