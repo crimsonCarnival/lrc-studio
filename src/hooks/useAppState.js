@@ -215,6 +215,8 @@ export function useAppState(user) {
         if (parsed.ytUrl) setRestoredYtUrl(parsed.ytUrl);
         if (typeof parsed.playbackPosition === 'number') setRestoredPosition(parsed.playbackPosition);
         if (typeof parsed.playbackSpeed === 'number') setRestoredSpeed(parsed.playbackSpeed);
+        if (parsed.title) setMediaTitle(parsed.title);
+        if (parsed.metadata) setProjectMetadata(parsed.metadata);
       } catch (e) {
         console.error('localStorage restore failed', e);
       }
@@ -244,10 +246,17 @@ export function useAppState(user) {
           if (project.state?.playbackPosition) setRestoredPosition(project.state.playbackPosition);
           if (project.state?.playbackSpeed) setRestoredSpeed(project.state.playbackSpeed);
           if (project.title) setMediaTitle(project.title);
-          if (project.metadata) setProjectMetadata({ description: project.metadata.description || '', tags: project.metadata.tags || [] });
+          if (project.metadata) {
+            setProjectMetadata({
+              description: project.metadata.description || '',
+              tags: project.metadata.tags || [],
+              coverUrl: project.metadata.coverUrl || '',
+              coverPublicId: project.metadata.coverPublicId || '',
+            });
+          }
           updateServerSnapshot({
             title: project.title || '',
-            metadata: project.metadata || { description: '', tags: [] },
+            metadata: project.metadata || { description: '', tags: [], coverUrl: '', coverPublicId: '' },
             state: {
               syncMode: project.state?.syncMode ?? true,
               activeLineIndex: project.state?.activeLineIndex || 0,
@@ -426,8 +435,10 @@ export function useAppState(user) {
       saveTime: toLocalISOString(now, utcOffset),
       timezone: tz,
       utcOffset,
+      title: mediaTitle || '',
+      metadata: projectMetadata,
     };
-  }, [lines, syncMode, activeLineIndex, editorMode, settings.advanced.timezone, projectYtUrl, playbackPosition, hasMedia]);
+  }, [lines, syncMode, activeLineIndex, editorMode, settings.advanced.timezone, projectYtUrl, playbackPosition, hasMedia, mediaTitle, projectMetadata]);
 
   const handleManualSave = useCallback(async (overrides = {}) => {
     const key = isSharedProjectRef.current ? SHARED_PROJECT_KEY : PROJECT_KEY;
@@ -1176,6 +1187,8 @@ export function useAppState(user) {
       ytUrl: project.upload?.youtubeUrl || '',
       playbackPosition: project.state?.playbackPosition || 0,
       playbackSpeed: project.state?.playbackSpeed || 1,
+      title: project.title || '',
+      metadata: project.metadata || {},
       projectId,
     }));
     } catch (err) {
