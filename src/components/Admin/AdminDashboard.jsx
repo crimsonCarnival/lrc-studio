@@ -4,7 +4,7 @@ import { admin } from '../../api';
 import { useAuthContext } from '../../contexts/useAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ShieldAlert, Trash2, Ban, CheckCircle2, RefreshCw, Activity, User as UserIcon, Undo2 } from 'lucide-react';
+import { ShieldAlert, Trash2, Ban, CheckCircle2, RefreshCw, Activity, User as UserIcon, Undo2, Users, Globe, History, BarChart3, Music, Info } from 'lucide-react';
 import toast from 'react-hot-toast';
 import RequestLogger from './RequestLogger';
 import ConfirmModal from '../shared/ConfirmModal';
