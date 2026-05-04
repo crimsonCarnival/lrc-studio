@@ -165,17 +165,28 @@ body,
 /* Imperative karaoke CJK fill — driven by data-filled attribute via rAF */
 [data-slot="karaoke-cjk"] {
   color: var(--color-zinc-500);
-  transition: color 75ms;
+  transition: color 150ms ease-out;
 }
 [data-slot="karaoke-cjk"][data-filled] {
   color: var(--color-primary);
+  text-shadow: 0 0 12px rgba(29, 185, 84, 0.4);
 }
 [data-slot="karaoke-cjk-rt"] {
   color: var(--color-zinc-600);
-  transition: color 75ms;
+  transition: color 150ms ease-out;
 }
 [data-slot="karaoke-cjk"][data-filled] [data-slot="karaoke-cjk-rt"] {
   color: var(--color-primary);
+}
+
+/* Seamless karaoke fill overlay */
+.karaoke-fill-glow {
+  text-shadow: 0 0 10px rgba(29, 185, 84, 0.6), 0 0 20px rgba(29, 185, 84, 0.2);
+}
+
+.karaoke-fill-mask {
+  mask-image: linear-gradient(to right, black 0%, black calc(100% - 12px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black 0%, black calc(100% - 12px), transparent 100%);
 }
 
 /* Edge blur mask */
@@ -199,6 +210,12 @@ body,
 
 .animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Keyframes for smooth karaoke fill with overshoot to clear soft-edged masks */
+@keyframes karaoke-fill-anim {
+  from { width: 0%; }
+  to { width: calc(100% + 20px); }
 }
 
 /* Fade in */
