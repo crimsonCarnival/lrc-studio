@@ -36,8 +36,10 @@ export function AppHeader({
   const navigate = useNavigate();
   const location = useLocation();
   const [editingProjectName, setEditingProjectName] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const goHomeOrWarn = () => {
+    setIsMenuOpen(false);
     if (location.pathname.startsWith('/project/') && hasUnsavedChanges()) {
       setUnsavedModalTarget('/home');
     } else {
@@ -46,6 +48,7 @@ export function AppHeader({
   };
 
   const navTo = (path) => {
+    setIsMenuOpen(false);
     const inProject = location.pathname.startsWith('/project/');
     if (inProject && hasUnsavedChanges()) {
       setUnsavedModalTarget(path);
@@ -138,7 +141,7 @@ export function AppHeader({
 
         {/* Unified User Profile Menu */}
 
-        <Popover>
+        <Popover open={isMenuOpen} onOpenChange={setIsMenuOpen}>
           <PopoverTrigger asChild>
             <Button variant="outline" className="p-0 sm:p-0 h-8 w-8 sm:h-9 sm:w-9 rounded-full overflow-hidden bg-zinc-800/80 hover:bg-zinc-700 border-zinc-700/60 flex-shrink-0 transition-all focus:ring-2 focus:ring-primary/50">
               {user?.avatarUrl
@@ -165,20 +168,20 @@ export function AppHeader({
 
             <div className="p-1 border-b border-zinc-800/60">
               {user?.role === 'admin' && (
-                <PopoverItem onClick={() => navigate('/admin')} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-2 text-indigo-400 hover:text-indigo-300">
+                <PopoverItem onClick={() => { setIsMenuOpen(false); navigate('/admin'); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-2 text-indigo-400 hover:text-indigo-300">
                   <ShieldAlert className="w-4 h-4" />Admin Dashboard
                 </PopoverItem>
               )}
-              <PopoverItem onClick={() => setShowSettings(true)} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-2">
+              <PopoverItem onClick={() => { setIsMenuOpen(false); setShowSettings(true); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-2">
                 <SettingsIcon className="w-4 h-4 text-zinc-400" />{t('settings.title')}
               </PopoverItem>
-              <PopoverItem onClick={() => setShowKeyboardHelp(p => !p)} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-2">
+              <PopoverItem onClick={() => { setIsMenuOpen(false); setShowKeyboardHelp(p => !p); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-2">
                 <Kbd>?</Kbd><span className="ml-1">{t('shortcuts.title') || 'Shortcuts'}</span>
               </PopoverItem>
             </div>
 
             <div className="p-1">
-              <PopoverItem onClick={logout} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-2 text-red-400 hover:text-red-300">
+              <PopoverItem onClick={() => { setIsMenuOpen(false); logout(); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-2 text-red-400 hover:text-red-300">
                 <LogOut className="w-4 h-4" />{t('auth.logout')}
               </PopoverItem>
             </div>

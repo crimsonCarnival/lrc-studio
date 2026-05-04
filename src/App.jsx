@@ -45,13 +45,6 @@ function AppInner() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
-  // When header sets unsavedModalTarget, navigate after confirming
-  useEffect(() => {
-    if (!unsavedModalTarget) return;
-    navigate(unsavedModalTarget);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setUnsavedModalTarget(null);
-  }, [unsavedModalTarget, navigate]);
 
   // Called by SetupScreen when user clicks Next with audio + lyrics
   const handleSetupComplete = useCallback(({ lines, editorMode }) => {

@@ -129,6 +129,8 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
         pendingProject={pendingProject}
         handleDiscardProject={handleDiscardProject}
         handleRestoreProject={handleRestoreProject}
+        unsavedModalTarget={layoutState.unsavedModalTarget}
+        setUnsavedModalTarget={layoutState.setUnsavedModalTarget}
       />
     </div>
   );
