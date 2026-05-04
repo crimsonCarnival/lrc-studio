@@ -10,7 +10,7 @@
 export function extractVideoId(url) {
   if (typeof url !== 'string') return null;
   const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&?/]+)/,
+    /(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/|watch\?.+&v=)|youtu\.be\/)([^&?/\s]{11})/,
     /^([a-zA-Z0-9_-]{11})$/,
   ];
   for (const p of patterns) {
