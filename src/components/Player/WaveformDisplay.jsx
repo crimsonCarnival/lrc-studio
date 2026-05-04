@@ -1,9 +1,6 @@
 import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { formatTime } from '../../utils/formatTime';
-import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { Tip } from '@/components/ui/tip';
-
-const ZOOM_LEVELS = [0, 50, 100, 200, 400]; // 0 = fit to container
 const MARKER_CLICK_THRESHOLD = 8; // px — how close a click must be to snap to a marker
 
 const WaveformDisplay = React.memo(function WaveformDisplay({ 
@@ -23,7 +20,6 @@ const WaveformDisplay = React.memo(function WaveformDisplay({
   const cleanupListenersRef = useRef(null);
   const waveformSnapRef = useRef(waveformSnap);
   waveformSnapRef.current = waveformSnap;
-  const [zoomLevel, setZoomLevel] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const timestampsRef = useRef([]);
 
@@ -168,38 +164,15 @@ const WaveformDisplay = React.memo(function WaveformDisplay({
       audioEl.currentTime = closestTs;
       onTimeUpdate?.(closestTs);
     } else {
-      // Normal seek — compute time from click position
-      const percentage = Math.max(0, Math.min(clickX / rect.width, 1));
+      // Normal seek — compute absolute time accounting for scroll
+      const absoluteX = scrollLeft + clickX;
+      const percentage = Math.max(0, Math.min(absoluteX / totalWidth, 1));
       const rawTime = percentage * (audioEl.duration || 0);
       const time = waveformSnapRef.current ? Math.round(rawTime) : rawTime;
       audioEl.currentTime = time;
       onTimeUpdate?.(time);
     }
   }, [duration, getWsWrapper, onTimeUpdate, audioRef]);
-
-  // Zoom controls
-  const handleZoomIn = useCallback(() => {
-    setZoomLevel((prev) => {
-      const idx = ZOOM_LEVELS.indexOf(prev);
-      const next = idx < ZOOM_LEVELS.length - 1 ? ZOOM_LEVELS[idx + 1] : prev;
-      wavesurferRef.current?.zoom(next);
-      return next;
-    });
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    setZoomLevel((prev) => {
-      const idx = ZOOM_LEVELS.indexOf(prev);
-      const next = idx > 0 ? ZOOM_LEVELS[idx - 1] : prev;
-      wavesurferRef.current?.zoom(next);
-      return next;
-    });
-  }, []);
-
-  const handleZoomFit = useCallback(() => {
-    setZoomLevel(0);
-    wavesurferRef.current?.zoom(0);
-  }, []);
 
   const initWaveform = useCallback(async (url, audioEl) => {
     setIsLoading(true);
@@ -235,7 +208,33 @@ const WaveformDisplay = React.memo(function WaveformDisplay({
       onTimeUpdate?.(time);
     });
 
-    ws.on('ready', () => setIsLoading(false));
+    ws.on('ready', () => {
+      setIsLoading(false);
+      
+      // Inject custom scrollbar CSS into the Shadow DOM
+      const wrapper = ws.getWrapper?.();
+      const shadowRoot = wrapper?.getRootNode();
+      if (shadowRoot && shadowRoot instanceof ShadowRoot) {
+        const style = document.createElement('style');
+        style.textContent = `
+          ::-webkit-scrollbar {
+            height: 4px;
+          }
+          ::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 9999px;
+          }
+          * {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+          }
+        `;
+        shadowRoot.appendChild(style);
+      }
+    });
 
     // Cursor following state
     let isFollowingCursor = false;
@@ -259,7 +258,8 @@ const WaveformDisplay = React.memo(function WaveformDisplay({
           font-family: monospace;
           pointer-events: none;
           z-index: 1000;
-          display: none;
+          opacity: 0;
+          transition: opacity 0.15s ease-in-out;
           white-space: nowrap;
           border: 1px solid rgba(29, 185, 84, 0.3);
         `;
@@ -273,14 +273,23 @@ const WaveformDisplay = React.memo(function WaveformDisplay({
       const rect = eventTarget?.getBoundingClientRect();
       if (!rect) return;
 
+      const wsWrapper = ws.getWrapper?.();
+      const scrollLeft = wsWrapper?.scrollLeft || 0;
+      const totalWidth = wsWrapper?.scrollWidth || rect.width;
+
       const x = e.clientX - rect.left;
-      const percentage = Math.max(0, Math.min(x / rect.width, 1));
+      const absoluteX = scrollLeft + x;
+      const percentage = Math.max(0, Math.min(absoluteX / totalWidth, 1));
       const time = percentage * (audioEl.duration || 0);
 
       tooltip.textContent = formatWaveTime(time);
       tooltip.style.left = (x - tooltip.offsetWidth / 2) + 'px';
       tooltip.style.top = '-28px';
-      tooltip.style.display = 'block';
+      
+      // Delay opacity to allow positioning to happen first without jump
+      requestAnimationFrame(() => {
+        tooltip.style.opacity = '1';
+      });
     };
 
     const handleMouseMove = (e) => {
@@ -288,8 +297,13 @@ const WaveformDisplay = React.memo(function WaveformDisplay({
         const rect = eventTarget?.getBoundingClientRect();
         if (!rect) return;
 
+        const wsWrapper = ws.getWrapper?.();
+        const scrollLeft = wsWrapper?.scrollLeft || 0;
+        const totalWidth = wsWrapper?.scrollWidth || rect.width;
+
         const x = e.clientX - rect.left;
-        const percentage = Math.max(0, Math.min(x / rect.width, 1));
+        const absoluteX = scrollLeft + x;
+        const percentage = Math.max(0, Math.min(absoluteX / totalWidth, 1));
         const rawTime = percentage * (audioEl.duration || 0);
         const time = waveformSnapRef.current ? Math.round(rawTime) : rawTime;
 
@@ -310,7 +324,9 @@ const WaveformDisplay = React.memo(function WaveformDisplay({
     };
 
     const handleMouseLeave = () => {
-      if (tooltipElement) tooltipElement.style.display = 'none';
+      if (tooltipElement) {
+        tooltipElement.style.opacity = '0';
+      }
       isFollowingCursor = false;
     };
 
@@ -383,36 +399,6 @@ const WaveformDisplay = React.memo(function WaveformDisplay({
           style={{ cursor: 'pointer' }}
           onClick={handleOverlayClick}
         />
-      </div>
-      {/* Zoom controls */}
-      <div className="flex items-center justify-end gap-1">
-        <Tip content="Zoom out">
-          <button
-            onClick={handleZoomOut}
-            disabled={zoomLevel === 0}
-            className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ZoomOut className="w-3.5 h-3.5" />
-          </button>
-        </Tip>
-        <Tip content="Fit to view">
-          <button
-            onClick={handleZoomFit}
-            disabled={zoomLevel === 0}
-            className="px-1.5 py-0.5 rounded text-[10px] font-mono text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <Maximize2 className="w-3 h-3" />
-          </button>
-        </Tip>
-        <Tip content="Zoom in">
-          <button
-            onClick={handleZoomIn}
-            disabled={zoomLevel === ZOOM_LEVELS[ZOOM_LEVELS.length - 1]}
-            className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <ZoomIn className="w-3.5 h-3.5" />
-          </button>
-        </Tip>
       </div>
     </div>
   );
