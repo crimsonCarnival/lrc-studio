@@ -3,7 +3,7 @@ import { Kbd } from "@shared/Kbd";
 import { Button } from '@ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Tip } from '@ui/tip';
-import { KEY_SYMBOLS } from '../../Settings/keySymbols';
+import { KEY_SYMBOLS } from '../../settings/keySymbols';
 
 export default function EditorSyncControls({
   settings,

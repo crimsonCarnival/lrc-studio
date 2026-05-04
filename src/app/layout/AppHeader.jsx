@@ -31,9 +31,6 @@ export function AppHeader({
   hideEditor,
   setHideEditor,
   setUnsavedModalTarget,
-  settings,
-  updateSetting,
-  i18n,
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -58,8 +55,6 @@ export function AppHeader({
       navigate(path);
     }
   };
-
-  const isActive = (path) => location.pathname.startsWith(path);
 
   const NAV_BTN = `px-2 sm:px-3 h-8 sm:h-9 rounded-lg sm:rounded-xl flex-shrink-0 transition-colors`;
   const NAV_ACTIVE = `bg-primary text-zinc-950 border-primary hover:bg-primary-dim hover:text-zinc-950`;
