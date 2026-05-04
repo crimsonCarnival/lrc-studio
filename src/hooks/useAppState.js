@@ -135,6 +135,7 @@ export function useAppState(user) {
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [projectYtUrl, setProjectYtUrl] = useState('');
   const [restoredYtUrl, setRestoredYtUrl] = useState('');
+  const [restoredCloudinaryUpload, setRestoredCloudinaryUpload] = useState(null);
   const [restoredPosition, setRestoredPosition] = useState(0);
   const [restoredSpeed, setRestoredSpeed] = useState(1);
   const [activeProjectId, setActiveProjectId] = useState(() => {
@@ -151,6 +152,8 @@ export function useAppState(user) {
   const isCreatingProjectRef = useRef(false);
   // Keep activeProjectId accessible synchronously inside save callbacks (state is async)
   const activeProjectIdRef = useRef(null);
+  // Cache the persisted upload ID for the current session to avoid repeated saveMedia calls
+  const sessionUploadIdRef = useRef(null);
 
   const playerRef = useRef(null);
   const langMenuRef = useRef(null);
@@ -247,6 +250,9 @@ export function useAppState(user) {
           setActiveLineIndex(project.state?.activeLineIndex || 0);
           setEditorModeRaw(project.lyrics?.editorMode || 'lrc');
           if (project.upload?.youtubeUrl) setRestoredYtUrl(project.upload.youtubeUrl);
+          if (project.upload?.source === 'cloudinary' && project.upload?.cloudinaryUrl) {
+            setRestoredCloudinaryUpload(project.upload);
+          }
           if (project.state?.playbackPosition) setRestoredPosition(project.state.playbackPosition);
           if (project.state?.playbackSpeed) setRestoredSpeed(project.state.playbackSpeed);
           if (project.title) setMediaTitle(project.title);
@@ -457,35 +463,36 @@ export function useAppState(user) {
     payload.title = finalTitle;
 
 
-    console.log('[Manual Save] Starting manual save...');
-    console.log('[Manual Save] Lines count:', payload.lines?.length);
-    console.log('[Manual Save] ActiveProjectId:', activeProjectId);
-    console.log('[Manual Save] Authenticated:', !!getAccessToken());
-    console.log('[Manual Save] Payload:', payload);
-
     localStorage.setItem(key, JSON.stringify(payload));
     setIsAutosaving(true);
     setTimeout(() => setIsAutosaving(false), 1200);
 
     // Sync to server if authenticated and we have an active project
     if (getAccessToken() && activeProjectId && !isSharedProjectRef.current) {
-      // First ensure upload exists if we have audio
-      let uploadIdToSave = null;
-      if (cloudinaryAudio) {
-        try {
-          const { upload } = await uploads.saveMedia({
-            source: 'cloudinary',
-            cloudinaryUrl: cloudinaryAudio.cloudinaryUrl,
-            publicId: cloudinaryAudio.publicId,
-            fileName: cloudinaryAudio.fileName,
-            title: overrides?.title !== undefined ? overrides.title : (mediaTitle || ''),
-            duration: cloudinaryAudio.duration,
-          });
-          uploadIdToSave = upload.id;
-        } catch (err) {
-          console.error('Failed to save upload:', err);
+      // Use cached upload ID when available (avoid redundant saveMedia calls on every save)
+      let uploadIdToSave = sessionUploadIdRef.current || null;
+      if (!uploadIdToSave && cloudinaryAudio) {
+        if (cloudinaryAudio.id) {
+          uploadIdToSave = cloudinaryAudio.id;
+          sessionUploadIdRef.current = cloudinaryAudio.id;
+        } else {
+          try {
+            const { upload } = await uploads.saveMedia({
+              source: 'cloudinary',
+              cloudinaryUrl: cloudinaryAudio.cloudinaryUrl,
+              publicId: cloudinaryAudio.publicId,
+              fileName: cloudinaryAudio.fileName,
+              title: overrides?.title !== undefined ? overrides.title : (mediaTitle || ''),
+              duration: cloudinaryAudio.duration,
+            });
+            uploadIdToSave = upload.id;
+            sessionUploadIdRef.current = upload.id;
+            setCloudinaryAudio((prev) => ({ ...prev, id: upload.id }));
+          } catch (err) {
+            console.error('Failed to save upload:', err);
+          }
         }
-      } else if (payload.ytUrl) {
+      } else if (!uploadIdToSave && payload.ytUrl) {
         try {
           const { upload } = await uploads.saveMedia({
             source: 'youtube',
@@ -495,6 +502,7 @@ export function useAppState(user) {
             duration: duration || null,
           });
           uploadIdToSave = upload.id;
+          sessionUploadIdRef.current = upload.id;
         } catch (err) {
           console.error('Failed to save upload:', err);
         }
@@ -525,7 +533,6 @@ export function useAppState(user) {
       if (overrides.title !== undefined) patchData.title = overrides.title;
       if (overrides.metadata !== undefined) patchData.metadata = overrides.metadata;
 
-      console.log('[Manual Save] Patching project:', activeProjectId, 'with data:', patchData);
       if (Object.keys(patchData).length > 0) {
         try {
           await projects.patch(activeProjectId, patchData);
@@ -537,7 +544,6 @@ export function useAppState(user) {
             lines: payload.lines,
             uploadId: uploadIdToSave ?? undefined,
           });
-          console.log('[Manual Save] Successfully saved to server');
         } catch (err) {
           console.error('[Manual Save] Failed to save to server:', err);
           toast.error(t('project.saveFailed') || 'Failed to save to server');
@@ -551,18 +557,23 @@ export function useAppState(user) {
 
       let uploadIdToSave = null;
       if (cloudinaryAudio) {
-        try {
-          const { upload } = await uploads.saveMedia({
-            source: 'cloudinary',
-            cloudinaryUrl: cloudinaryAudio.cloudinaryUrl,
-            publicId: cloudinaryAudio.publicId,
-            fileName: cloudinaryAudio.fileName,
-            title: cloudinaryAudio.fileName?.replace(/\.[^/.]+$/, '') || '',
-            duration: cloudinaryAudio.duration,
-          });
-          uploadIdToSave = upload.id;
-        } catch (err) {
-          console.error('Failed to save upload:', err);
+        if (cloudinaryAudio.id) {
+          uploadIdToSave = cloudinaryAudio.id;
+        } else {
+          try {
+            const { upload } = await uploads.saveMedia({
+              source: 'cloudinary',
+              cloudinaryUrl: cloudinaryAudio.cloudinaryUrl,
+              publicId: cloudinaryAudio.publicId,
+              fileName: cloudinaryAudio.fileName,
+              title: cloudinaryAudio.fileName?.replace(/\.[^/.]+$/, '') || '',
+              duration: cloudinaryAudio.duration,
+            });
+            uploadIdToSave = upload.id;
+            setCloudinaryAudio((prev) => ({ ...prev, id: upload.id }));
+          } catch (err) {
+            console.error('Failed to save upload:', err);
+          }
         }
       } else if (payload.ytUrl) {
         try {
@@ -750,7 +761,7 @@ export function useAppState(user) {
   }, [isSharedProject]);
 
   // ——— Export project as shareable URL ———
-  const exportToUrl = useCallback(async (readOnly = true) => {
+  const exportToUrl = useCallback(async () => {
     try {
       // First ensure upload exists if we have audio
       let uploadIdToSave = null;
@@ -783,64 +794,54 @@ export function useAppState(user) {
         }
       }
 
-      const shareData = {
+      const projectData = {
         title: mediaTitle || '',
         metadata: projectMetadata,
-        lyrics: { editorMode, lines },
+        lyrics: { editorMode, lines: lines.map(l => ({ ...l, id: undefined })) },
         state: {
           syncMode,
           activeLineIndex: 0,
           playbackPosition: 0,
           playbackSpeed: 1,
         },
-        readOnly,
       };
       if (uploadIdToSave) {
-        shareData.uploadId = uploadIdToSave;
+        projectData.uploadId = uploadIdToSave;
       }
 
-      // If the user already has a project, patch it to update and reuse its ID
-      // instead of creating a duplicate every time they generate a share link
       let sharedProjectId = activeProjectIdRef.current;
-      if (sharedProjectId && !readOnly) {
-        // Editable share: update the existing project's readOnly flag + latest content
+      if (sharedProjectId) {
+        // Update the existing project instead of creating a new one
         try {
-          await projects.patch(sharedProjectId, {
-            readOnly,
-            lyrics: shareData.lyrics,
-            state: shareData.state,
-          });
-        } catch {
-          // Fall through to create if patch fails
+          await projects.update(sharedProjectId, projectData);
+        } catch (err) {
+          console.error('Failed to update project for sharing:', err);
+          // If update fails (e.g. 404), try to create a new one
           sharedProjectId = null;
         }
       }
 
       if (!sharedProjectId) {
-        const result = await projects.create(shareData);
+        const result = await projects.create(projectData);
         sharedProjectId = result.projectId;
-        // Track as active project if writable
-        if (!readOnly) {
-          setActiveProjectId(sharedProjectId);
-          activeProjectIdRef.current = sharedProjectId;
-          localStorage.setItem(ACTIVE_PROJECT_ID_KEY, sharedProjectId);
-        }
+        setActiveProjectId(sharedProjectId);
+        activeProjectIdRef.current = sharedProjectId;
+        localStorage.setItem(ACTIVE_PROJECT_ID_KEY, sharedProjectId);
       }
 
-      const url = `${window.location.origin}/share/${sharedProjectId}${readOnly ? '?readonly=1' : ''}`;
-      // Write the shared project to its own localStorage key (separate from the personal project)
-      localStorage.setItem(SHARED_PROJECT_KEY, JSON.stringify(buildProjectPayload()));
+      const url = `${window.location.origin}/share/${sharedProjectId}`;
+      
       setShareModal({
         url,
         ytUrl: projectYtUrl,
         linesCount: lines.length,
         hasSynced: lines.some((l) => l.timestamp != null),
-        readOnly,
+        readOnly: true,
       });
     } catch {
       toast.error(t('project.shareFailed') || 'Could not generate share link.');
     }
-  }, [lines, editorMode, projectYtUrl, syncMode, mediaTitle, buildProjectPayload, cloudinaryAudio, t, activeProjectId, projectMetadata]);
+  }, [lines, editorMode, projectYtUrl, syncMode, mediaTitle, cloudinaryAudio, t, activeProjectId, projectMetadata, duration]);
 
   // ——— Mode switching with end-time inference ———
   const setEditorMode = useCallback(
@@ -886,9 +887,9 @@ export function useAppState(user) {
 
     // ✅ FIX: Sync to server database, not just localStorage
     if (getAccessToken() && activeProjectId && !isSharedProjectRef.current) {
-      // First ensure upload exists if we have audio
-      let uploadIdToSave = null;
-      if (cloudinaryAudio) {
+      // Skip saveMedia if we already have an upload ID for this session
+      let uploadIdToSave = sessionUploadIdRef.current || null;
+      if (!uploadIdToSave && cloudinaryAudio) {
         try {
           const { upload } = await uploads.saveMedia({
             source: 'cloudinary',
@@ -899,10 +900,11 @@ export function useAppState(user) {
             duration: cloudinaryAudio.duration,
           });
           uploadIdToSave = upload.id;
+          sessionUploadIdRef.current = upload.id;
         } catch (err) {
           console.error('Failed to save upload:', err);
         }
-      } else if (payload.ytUrl) {
+      } else if (!uploadIdToSave && payload.ytUrl) {
         try {
           const { upload } = await uploads.saveMedia({
             source: 'youtube',
@@ -912,6 +914,7 @@ export function useAppState(user) {
             duration: duration || null,
           });
           uploadIdToSave = upload.id;
+          sessionUploadIdRef.current = upload.id;
         } catch (err) {
           console.error('Failed to save upload:', err);
         }
@@ -1042,19 +1045,15 @@ export function useAppState(user) {
       doAutoSave();
     }
   }, [lines, doAutoSave]);
-  // Time-based trigger (ticks every second)
+  // Time-based trigger: fire at the configured interval (not every second)
   useEffect(() => {
     if (!settings.advanced.autoSave.enabled) return;
+    const intervalMs = Math.max(10, settings.advanced.autoSave.timeInterval ?? 30) * 1000;
     const id = setInterval(() => {
-      const s = autoSaveRef.current;
-      if (!s?.enabled) return;
-      const elapsedSec = (Date.now() - lastSaveTimeRef.current) / 1000;
-      if (elapsedSec >= (s.timeInterval ?? 30)) {
-        doAutoSave();
-      }
-    }, 1000);
+      doAutoSave();
+    }, intervalMs);
     return () => clearInterval(id);
-  }, [settings.advanced.autoSave.enabled, doAutoSave]);
+  }, [settings.advanced.autoSave.enabled, settings.advanced.autoSave.timeInterval, doAutoSave]);
 
   const handleRestoreProject = () => {
     if (pendingProject) {
@@ -1200,6 +1199,7 @@ export function useAppState(user) {
     localStorage.removeItem(PROJECT_KEY);
     localStorage.removeItem(SHARED_PROJECT_KEY);
     lastServerSnapshotRef.current = null;
+    sessionUploadIdRef.current = null;
     setCloudinaryAudio(null);
   }, [setLines, setActiveProjectId]);
 
@@ -1223,8 +1223,13 @@ export function useAppState(user) {
     setSyncMode(true);
     setActiveLineIndex(project.state?.activeLineIndex || 0);
     setEditorModeRaw(project.lyrics?.editorMode || 'lrc');
-    if (project.upload?.youtubeUrl) setRestoredYtUrl(project.upload.youtubeUrl);
+    if (project.upload?.youtubeUrl) {
+      setRestoredYtUrl(project.upload.youtubeUrl);
+    } else if (project.upload?.source === 'cloudinary' || project.upload?.cloudinaryUrl) {
+      setRestoredCloudinaryUpload(project.upload);
+    }
     if (project.state?.playbackPosition) setRestoredPosition(project.state.playbackPosition);
+    
     if (project.state?.playbackSpeed) setRestoredSpeed(project.state.playbackSpeed);
     if (project.title) setMediaTitle(project.title);
     setActiveProjectId(projectId);
@@ -1276,6 +1281,8 @@ export function useAppState(user) {
         setDuration(0);
         setMediaTitle('');
         setCloudinaryAudio(null);
+        // Clear upload ID cache — media has been removed
+        sessionUploadIdRef.current = null;
       }
     },
     [],
@@ -1283,8 +1290,11 @@ export function useAppState(user) {
 
   const handleCloudinaryUpload = useCallback((info) => {
     setCloudinaryAudio(info);
-    // Note: Upload will be created and linked when project is saved
-  }, []);
+    // If we already have a project, trigger an immediate save to link the new media
+    if (activeProjectIdRef.current) {
+      triggerImportSave();
+    }
+  }, [triggerImportSave]);
 
   // ——— Global keyboard shortcuts ———
   useEffect(() => {
@@ -1358,8 +1368,10 @@ export function useAppState(user) {
   }, [showLangMenu]);
 
   const handleYtUrlChange = useCallback((url) => {
+    // Clear upload ID cache whenever YouTube URL changes (different media)
+    if (url !== projectYtUrl) sessionUploadIdRef.current = null;
     setProjectYtUrl(url || '');
-  }, []);
+  }, [projectYtUrl]);
 
   const handleTimeUpdate = useCallback((time) => {
     setPlaybackPosition(time);
@@ -1367,6 +1379,12 @@ export function useAppState(user) {
 
   const handleDurationChange = useCallback((d) => {
     setDuration(d);
+    setCloudinaryAudio(prev => {
+      if (prev && (prev.duration === null || prev.duration === undefined)) {
+        return { ...prev, duration: d };
+      }
+      return prev;
+    });
   }, []);
 
   // ——— Loop Current Line ———
@@ -1580,6 +1598,7 @@ export function useAppState(user) {
     handleDurationChange,
     handleYtUrlChange,
     restoredYtUrl,
+    restoredCloudinaryUpload,
     restoredPosition,
     restoredSpeed,
     exportToUrl,

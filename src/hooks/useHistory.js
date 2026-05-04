@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Stack } from '@crimson-carnival/ds-js';
+import { Deque } from '@crimson-carnival/ds-js';
 
 /**
  * Custom hook for undo/redo history management.
@@ -18,9 +18,9 @@ export default function useHistory(initial, options = {}) {
 
   const [state, setStateRaw] = useState(initial);
   
-  // Using Stack from ds-js for past and future
-  const pastRef = useRef(new Stack());
-  const futureRef = useRef(new Stack());
+  // Using Deque from ds-js for past and future to support limit truncation
+  const pastRef = useRef(new Deque());
+  const futureRef = useRef(new Deque());
   
   const lastUpdateRef = useRef(0);
   const [canUndo, setCanUndo] = useState(false);
@@ -35,15 +35,11 @@ export default function useHistory(initial, options = {}) {
       const now = Date.now();
       if (now - lastUpdateRef.current > groupingThresholdMs) {
         const companion = getCompanionRef.current?.();
-        pastRef.current.push({ value: prev, companion });
+        pastRef.current.pushBack({ value: prev, companion });
         
-        // Manual limit handling for Stack
+        // Enforce history limit by removing the oldest entry
         if (pastRef.current.size > limit) {
-          // Stack doesn't support shifting, but for undo/redo it's usually 
-          // okay to just let it grow or clear if it hits a huge number.
-          // However, to respect the limit exactly, we'd need a Deque or to 
-          // clear and rebuild. For now, we'll keep it simple as the Stack
-          // is more semantically correct for an undo history.
+          pastRef.current.popFront();
         }
       }
       
@@ -61,9 +57,9 @@ export default function useHistory(initial, options = {}) {
     setStateRaw((prev) => {
       if (pastRef.current.isEmpty()) return prev;
       
-      const entry = pastRef.current.pop();
+      const entry = pastRef.current.popBack();
       const currentCompanion = getCompanionRef.current?.();
-      futureRef.current.push({ value: prev, companion: currentCompanion });
+      futureRef.current.pushBack({ value: prev, companion: currentCompanion });
       
       lastUpdateRef.current = 0;
       setCanUndo(!pastRef.current.isEmpty());
@@ -81,9 +77,9 @@ export default function useHistory(initial, options = {}) {
     setStateRaw((prev) => {
       if (futureRef.current.isEmpty()) return prev;
       
-      const entry = futureRef.current.pop();
+      const entry = futureRef.current.popBack();
       const currentCompanion = getCompanionRef.current?.();
-      pastRef.current.push({ value: prev, companion: currentCompanion });
+      pastRef.current.pushBack({ value: prev, companion: currentCompanion });
       
       lastUpdateRef.current = 0;
       setCanUndo(true);

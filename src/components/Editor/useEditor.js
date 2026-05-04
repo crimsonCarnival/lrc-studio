@@ -81,6 +81,12 @@ export function useEditor({
       activeWordIndexRef.current = 0;
       return;
     }
+
+    // If the user has manually focused a word, do not auto-advance the cursor away from it
+    if (focusedTimestamp?.type === 'word' || focusedTimestamp?.type === 'secondaryWord') {
+      return;
+    }
+
     const words = stampTarget === 'secondary'
       ? lines[activeLineIndex]?.secondaryWords
       : lines[activeLineIndex]?.words;
@@ -93,7 +99,7 @@ export function useEditor({
     const newIdx = idx === -1 ? words.length : idx;
     setActiveWordIndex(newIdx);
     activeWordIndexRef.current = newIdx;
-  }, [activeLineIndex, lines, editorMode, stampTarget]);
+  }, [activeLineIndex, lines, editorMode, stampTarget, focusedTimestamp]);
 
   // Reset stampTarget when the active line changes
   useEffect(() => {
@@ -398,7 +404,10 @@ export function useEditor({
       // Compute target time before updating state — state updaters must be pure
       let targetTime = null;
       const ftWordField = focusedTimestamp?.type === 'secondaryWord' ? 'secondaryWords' : 'words';
+
+      // Nudge word only in 'words' mode
       if (
+        editorMode === 'words' &&
         focusedTimestamp?.lineIndex === index &&
         (focusedTimestamp.type === 'word' || focusedTimestamp.type === 'secondaryWord') &&
         focusedTimestamp.wordIndex != null &&
@@ -406,14 +415,19 @@ export function useEditor({
       ) {
         const newWordTime = Math.max(0, currentLines[index][ftWordField][focusedTimestamp.wordIndex].time + numericDelta);
         if (!isNaN(newWordTime)) targetTime = newWordTime;
-      } else if (
+      } 
+      // Nudge end time only in 'srt' or 'words' mode
+      else if (
+        (editorMode === 'srt' || editorMode === 'words') &&
         focusedTimestamp?.lineIndex === index &&
         focusedTimestamp.type === 'end' &&
         currentLines[index].endTime != null
       ) {
         const newEndTime = Math.max(0, Number(currentLines[index].endTime) + numericDelta);
         if (!isNaN(newEndTime)) targetTime = newEndTime;
-      } else if (currentLines[index].timestamp != null) {
+      } 
+      // Fallback: nudge line start
+      else if (currentLines[index].timestamp != null) {
         const newTimestamp = Math.max(0, Number(currentLines[index].timestamp) + numericDelta);
         if (!isNaN(newTimestamp)) targetTime = newTimestamp;
       }
@@ -424,6 +438,7 @@ export function useEditor({
 
         const wField = focusedTimestamp?.type === 'secondaryWord' ? 'secondaryWords' : 'words';
         if (
+          editorMode === 'words' &&
           focusedTimestamp?.lineIndex === index &&
           (focusedTimestamp.type === 'word' || focusedTimestamp.type === 'secondaryWord') &&
           focusedTimestamp.wordIndex != null &&
@@ -437,15 +452,20 @@ export function useEditor({
             updated[index] = { ...updated[index], [wField]: newWords };
           }
         } else if (
+          (editorMode === 'srt' || editorMode === 'words') &&
           focusedTimestamp?.lineIndex === index &&
           focusedTimestamp.type === 'end' &&
           updated[index].endTime != null
         ) {
           const newEndTime = Math.max(0, Number(updated[index].endTime) + numericDelta);
-          if (!isNaN(newEndTime)) updated[index] = { ...updated[index], endTime: newEndTime };
+          if (!isNaN(newEndTime)) {
+            updated[index] = { ...updated[index], endTime: newEndTime };
+          }
         } else if (updated[index].timestamp != null) {
           const newTimestamp = Math.max(0, Number(updated[index].timestamp) + numericDelta);
-          if (!isNaN(newTimestamp)) updated[index] = { ...updated[index], timestamp: newTimestamp };
+          if (!isNaN(newTimestamp)) {
+            updated[index] = { ...updated[index], timestamp: newTimestamp };
+          }
         }
         return updated;
       });
