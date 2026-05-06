@@ -65,6 +65,7 @@ export default function InterfaceSettings({ settings, updateSetting, searchTerm 
           <SelectContent className="bg-zinc-900 border-zinc-700">
             <SelectItem value="en">English</SelectItem>
             <SelectItem value="es">Español</SelectItem>
+            <SelectItem value="jp">日本語</SelectItem>
           </SelectContent>
         </Select>
       </SettingRow>
