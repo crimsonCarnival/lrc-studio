@@ -477,21 +477,14 @@ export function useAppState(user) {
 
 
 
-  // ——— Page Exit Guard (Unsaved Changes) ———
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      // Never block exit while the project is still being restored from server —
-      // the snapshot hasn't been written yet so every comparison looks dirty.
-      if (isProjectLoadingRef.current) return;
-
-      // Block exit while a save / create is in-flight so we don't corrupt state.
-      if (isSaving || isCreatingProjectRef.current) {
-        e.preventDefault();
-        e.returnValue = '';
-        return '';
-      }
-
-      // Build current payload and diff against the last known server snapshot.
+  const hasUnsavedChanges = useCallback(() => {
+    // Unsaved local project with actual content
+    if (!activeProjectId && lines.length > 0) return true;
+    
+    // Server project with potential differences
+    if (activeProjectId && lastServerSnapshotRef.current) {
+      if (isAutosaving) return true;
+      
       const payload = buildProjectPayload();
       const patch = buildProjectPatch({
         prevSnapshot: lastServerSnapshotRef.current,
@@ -509,18 +502,29 @@ export function useAppState(user) {
         editorMode,
         lines: payload.lines || [],
       });
+      
+      return Object.keys(patch).length > 0;
+    }
+    return false;
+  }, [activeProjectId, lines, mediaTitle, projectMetadata, syncMode, activeLineIndex, editorMode, isAutosaving, buildProjectPayload]);
 
-      // Treat as dirty if:
-      // a) there is a meaningful diff against the snapshot, OR
-      // b) we have lines but no snapshot AND autosave is off (autosave would
-      //    otherwise save the project before the user can navigate away).
-      const noSnapshot = !lastServerSnapshotRef.current && payload.lines?.length > 0;
-      const autoSaveOn = settings.advanced?.autoSave?.enabled;
-      const isDirty =
-        (patch && Object.keys(patch).length > 0) ||
-        (noSnapshot && !autoSaveOn);
+  // ——— Page Exit Guard (Unsaved Changes) ———
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      // Never block exit while the project is still being restored from server
+      if (isProjectLoadingRef.current) return;
 
-      if (isDirty) {
+      // Ensure we only prompt on project-related URLs.
+      if (!window.location.pathname.startsWith('/project/')) return;
+
+      // Block exit while a save / create is in-flight so we don't corrupt state.
+      if (isSaving || isCreatingProjectRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+
+      if (hasUnsavedChanges()) {
         e.preventDefault();
         e.returnValue = '';
         return '';
@@ -529,16 +533,7 @@ export function useAppState(user) {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [
-    buildProjectPayload,
-    mediaTitle,
-    projectMetadata,
-    syncMode,
-    activeLineIndex,
-    editorMode,
-    isSaving,
-    settings.advanced?.autoSave?.enabled,
-  ]);
+  }, [isSaving, hasUnsavedChanges]);
 
 
   const handleCloudinaryUpload = useCallback((info) => {
@@ -598,36 +593,7 @@ export function useAppState(user) {
     }
   }, [t, loadProject]); // loadProject included as dependency
 
-  const hasUnsavedChanges = useCallback(() => {
-    // Unsaved local project with actual content
-    if (!activeProjectId && lines.length > 0) return true;
-    
-    // Server project with potential differences
-    if (activeProjectId && lastServerSnapshotRef.current) {
-      if (isAutosaving) return true;
-      
-      const payload = buildProjectPayload();
-      const patch = buildProjectPatch({
-        prevSnapshot: lastServerSnapshotRef.current,
-        title: mediaTitle || '',
-        metadata: projectMetadata,
-        state: {
-          syncMode,
-          activeLineIndex,
-          playbackPosition: payload.playbackPosition || 0,
-          playbackSpeed: payload.playbackSpeed || 1,
-          saveTime: payload.saveTime,
-          timezone: payload.timezone,
-          utcOffset: payload.utcOffset,
-        },
-        editorMode,
-        lines: payload.lines || [],
-      });
-      
-      return Object.keys(patch).length > 0;
-    }
-    return false;
-  }, [activeProjectId, lines, mediaTitle, projectMetadata, syncMode, activeLineIndex, editorMode, isAutosaving, buildProjectPayload]);
+
 
   return {
     t,
