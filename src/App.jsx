@@ -27,6 +27,10 @@ function AppInner() {
     setLines,
     setEditorMode,
     setSyncMode,
+    activeProjectId,
+    setMediaTitle,
+    handleYtUrlChange,
+    handleCloudinaryUpload,
   } = appState;
 
   useScrollLock(!!pendingProject);
@@ -36,6 +40,18 @@ function AppInner() {
   useEffect(() => {
     if (user) syncFromServer();
   }, [user, syncFromServer]);
+
+  // Promote /project/local → /project/:id once the server assigns a real ID
+  useEffect(() => {
+    if (activeProjectId && location.pathname === '/project/local') {
+      navigate(`/project/${activeProjectId}`, { replace: true });
+    }
+  }, [activeProjectId, location.pathname, navigate]);
+
+  const isProjectPage = location.pathname.startsWith('/project/') && location.pathname !== '/project/new';
+  const isSetupPage = location.pathname === '/project/new';
+  const isReady = isProjectPage;
+  const isPlayerMounted = isProjectPage || isSetupPage;
 
   // Layout-specific state
   const rawFocusMode = settings.interface?.focusMode || 'default';
@@ -50,17 +66,32 @@ function AppInner() {
   const [unsavedModalTarget, setUnsavedModalTarget] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [showNamingModal, setShowNamingModal] = useState(false);
 
   // Called by SetupScreen when user clicks Next with audio + lyrics
-  const handleSetupComplete = useCallback(({ lines, editorMode }) => {
+  const handleSetupComplete = useCallback(({
+    lines,
+    editorMode,
+    audioSource,
+    ytUrl,
+    audioName,
+    selectedUpload
+  }) => {
     setLines(lines);
     setEditorMode(editorMode);
     setSyncMode(true);
-    navigate('/project/local');
-  }, [setLines, setEditorMode, setSyncMode, navigate]);
 
-  const isProjectPage = location.pathname.startsWith('/project/') && location.pathname !== '/project/new';
-  const isReady = isProjectPage;
+    if (audioName) setMediaTitle(audioName);
+
+    if (audioSource === 'youtube' && ytUrl) {
+      handleYtUrlChange(ytUrl);
+    } else if (audioSource === 'cloud' && selectedUpload) {
+      handleCloudinaryUpload(selectedUpload);
+    }
+
+    // Show the naming modal so users can set metadata before saving
+    setShowNamingModal(true);
+  }, [setLines, setEditorMode, setSyncMode, setMediaTitle, handleYtUrlChange, handleCloudinaryUpload, setShowNamingModal]);
 
   const setFocusMode = useCallback((mode) => {
     updateSetting('interface.focusMode', mode);
@@ -141,6 +172,7 @@ function AppInner() {
     mobileTab,
     setMobileTab: useCallback((tab) => updateSetting('interface.mobileTab', tab), [updateSetting]),
     isReady,
+    isPlayerMounted,
     editorColClass,
     previewColClass,
     showEditor,
@@ -152,7 +184,9 @@ function AppInner() {
     editorWidth,
     setEditorWidth,
     lockLayout,
-    setLockLayout: useCallback((lock) => updateSetting('interface.lockLayout', lock), [updateSetting])
+    setLockLayout: useCallback((lock) => updateSetting('interface.lockLayout', lock), [updateSetting]),
+    showNamingModal,
+    setShowNamingModal,
   };
 
   // Enhance appState with layout-driven state

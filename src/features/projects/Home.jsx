@@ -154,7 +154,7 @@ export default function Home() {
             </div>
 
             {/* Featured / Resume Section (Main Area) */}
-            {!loading && !searchQuery && lastProject && (
+            {!loading && lastProject && (
               <section className="w-full max-w-md flex flex-col gap-4 animate-fade-in mt-4">
                 <h2 className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">{t('home.resumeLast')}</h2>
                 <div
@@ -191,7 +191,7 @@ export default function Home() {
               </p>
             </div>
           </div>
-
+ 
           {/* RIGHT COLUMN: Project Sidebar */}
           <div className="w-full lg:w-[360px] flex flex-col gap-6 bg-zinc-900/20 glass-dark rounded-3xl p-6 h-[400px] lg:h-full overflow-hidden animate-slide-in-right">
             <div className="flex items-center justify-between shrink-0">
@@ -200,7 +200,7 @@ export default function Home() {
                 <span className="text-[10px] font-bold text-zinc-500 bg-zinc-800/50 px-2 py-0.5 rounded-full">{items.length}</span>
               )}
             </div>
-
+ 
             {loading ? (
               <div className="flex flex-col gap-3 animate-pulse">
                 {[1, 2, 3, 4].map(i => (
@@ -218,7 +218,7 @@ export default function Home() {
               <>
                 {/* Sidebar Search */}
                 <div className="relative shrink-0">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
                   <input
                     type="text"
                     value={searchQuery}
@@ -227,9 +227,10 @@ export default function Home() {
                     className="w-full pl-9 pr-4 py-2 bg-zinc-950/50 border border-zinc-800/60 rounded-xl text-xs text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/30 transition-all"
                   />
                 </div>
-
+ 
                 {/* Sidebar List */}
-                <div className="flex-1 overflow-y-auto scrollbar-thin pr-1 flex flex-col gap-2.5">
+                <div className="flex-1 overflow-y-auto scrollbar-thin pr-1 flex flex-col gap-2.5 min-h-0">
+
                   {filteredProjects.length === 0 ? (
                     <p className="text-xs text-zinc-600 text-center py-10">No results found</p>
                   ) : (

@@ -23,5 +23,9 @@ export default {
   "clearLoop": "Clear loop",
   "pasteSpotifyUrl": "Paste Spotify track URL...",
   "spotifyPremiumRequired": "Spotify Premium required for playback",
-  "spotifyNotConnected": "Connect Spotify in Settings to play tracks"
+  "spotifyNotConnected": "Connect Spotify in Settings to play tracks",
+  "moveToTop": "Move to top",
+  "moveToBottom": "Move to bottom",
+  "mark": "Mark current position",
+  "loop": "Loop"
 };

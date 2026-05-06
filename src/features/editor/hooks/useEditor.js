@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { lyrics } from '@/api';
 import { matchKey } from '@/utils/keyboard';
-import { toHiragana, toKatakana, parseRubyMarkup, hasCJK } from '@/utils/furigana';
+import { toHiragana, toKatakana, toRomaji, parseRubyMarkup, hasCJK } from '@/utils/furigana';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '@/contexts/useSettings';
 import useConfirm from '@/hooks/useConfirm';
@@ -49,6 +49,7 @@ export function useEditor({
   const [isActiveLineLocked, setIsActiveLineLocked] = useState(false);
   const [activeWordIndex, setActiveWordIndex] = useState(0);
   const [stampTarget, setStampTarget] = useState('main'); // 'main' | 'secondary'
+  const [modifiedLines, setModifiedLines] = useState(new Set()); // indices modified since last save
 
   const [requestConfirm, confirmModal] = useConfirm();
 
@@ -498,6 +499,7 @@ export function useEditor({
       settings: settings.editor || {},
     });
 
+    setModifiedLines(prev => new Set(prev).add(idx));
     setLines(result.nextLines);
     if (result.nextActiveLineIndex != null) {
       setActiveLineIndex(result.nextActiveLineIndex);
@@ -521,6 +523,7 @@ export function useEditor({
     editorMode,
     awaitingEndMark,
     settings.editor,
+    setModifiedLines,
   ]);
 
   // ——— Shortcut handler (sync mode) ———
@@ -629,6 +632,7 @@ export function useEditor({
   };
 
   const handleSaveLineText = (index, newText, newSecondary, newTranslation) => {
+    setModifiedLines(prev => new Set(prev).add(index));
     setLines((prev) => {
       const updated = [...prev];
       const prevLine = updated[index];
@@ -696,6 +700,7 @@ export function useEditor({
   };
 
   const handleSetWordReading = useCallback((lineIndex, wordIndex, reading) => {
+    setModifiedLines(prev => new Set(prev).add(lineIndex));
     setLines((prev) => {
       const updated = [...prev];
       const line = { ...updated[lineIndex] };
@@ -708,21 +713,7 @@ export function useEditor({
       updated[lineIndex] = line;
       return updated;
     });
-  }, [setLines]);
-
-  const handleConvertReadings = useCallback((format) => {
-    setLines((prev) =>
-      prev.map((line) => {
-        if (!line.words?.some((w) => w.reading)) return line;
-        const newWords = line.words.map((w) => {
-          if (!w.reading) return w;
-          const converted = format === 'katakana' ? toKatakana(w.reading) : toHiragana(w.reading);
-          return converted === w.reading ? w : { ...w, reading: converted };
-        });
-        return { ...line, words: newWords };
-      })
-    );
-  }, [setLines]);
+  }, [setLines, setModifiedLines]);
 
   const handleDeleteLine = (index) => {
     requestConfirm(t('confirm.deleteLine') || 'Delete this line?', () => {
@@ -740,14 +731,15 @@ export function useEditor({
   };
 
   const handleAddLine = useCallback(
-    (index) => {
+    (index, lineData = null) => {
       setLines((prev) => {
         const updated = [...prev];
-        updated.splice(index + 1, 0, {
+        const newLine = lineData || {
           text: '',
-          timestamp: prev[index].timestamp,
+          timestamp: prev[index]?.timestamp ?? null,
           id: crypto.randomUUID(),
-        });
+        };
+        updated.splice(index + 1, 0, newLine);
         return updated;
       });
     },
@@ -1078,11 +1070,12 @@ export function useEditor({
     handleSetActiveWordIndex,
     handleSetTimestamp,
     handleSetWordReading,
-    handleConvertReadings,
     stampTarget,
     handleStampTargetToggle,
     activeWordIndex,
     overlappingLines,
+    modifiedLines,
+    clearModifiedLines: () => setModifiedLines(new Set()),
     // extras
     requestConfirm,
     confirmModal,

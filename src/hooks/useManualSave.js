@@ -85,7 +85,9 @@ export function useManualSave({
   lastServerSnapshotRef,
   playerRef,
   setIsAutosaving,
+  setIsSaving,
   setActiveProjectId,
+  onSaveSuccess,
 }) {
   const { t } = useTranslation();
 
@@ -132,7 +134,9 @@ export function useManualSave({
     setIsAutosaving(true);
     setTimeout(() => setIsAutosaving(false), 1200);
 
-    if (getAccessToken() && activeProjectId && !isSharedProjectRef.current) {
+    if (getAccessToken() && activeProjectIdRef.current && !isSharedProjectRef.current) {
+      setIsSaving?.(true);
+      try {
       let uploadIdToSave = sessionUploadIdRef.current || null;
       if (!uploadIdToSave && cloudinaryAudio) {
         if (cloudinaryAudio.id) {
@@ -161,14 +165,16 @@ export function useManualSave({
 
       if (Object.keys(patchData).length > 0) {
         try {
-          await projects.patch(activeProjectId, patchData);
+          await projects.patch(activeProjectIdRef.current, patchData);
           updateServerSnapshot(lastServerSnapshotRef, { title: finalTitle, metadata: finalMetadata, state: patchState, editorMode, lines: payload.lines, uploadId: uploadIdToSave ?? undefined });
         } catch (err) {
           console.error('[Manual Save] Server error:', err);
           toast.error(t('project.saveFailed') || 'Failed to save to server');
         }
       }
-    } else if (getAccessToken() && !activeProjectId && !isSharedProjectRef.current && payload.lines?.length > 0) {
+      onSaveSuccess?.();
+      } finally { setIsSaving?.(false); }
+    } else if (getAccessToken() && !activeProjectIdRef.current && !isSharedProjectRef.current && payload.lines?.length > 0) {
       if (isCreatingProjectRef.current) return;
       isCreatingProjectRef.current = true;
       let uploadIdToSave = null;
@@ -186,12 +192,13 @@ export function useManualSave({
           activeProjectIdRef.current = projectId;
           updateServerSnapshot(lastServerSnapshotRef, { title: createData.title, metadata: createData.metadata, state: createData.state, editorMode, lines: payload.lines, uploadId: uploadIdToSave ?? undefined });
           try { localStorage.setItem(ACTIVE_PROJECT_ID_KEY, projectId); } catch { /* ignore */ }
+          onSaveSuccess?.();
           toast.success(t('project.created') || 'Project created');
         })
         .catch((err) => { console.error(err); toast.error(t('project.createFailed') || 'Failed to create project'); })
         .finally(() => { isCreatingProjectRef.current = false; });
     }
-  }, [buildProjectPayload, activeProjectId, mediaTitle, projectMetadata, editorMode, syncMode, activeLineIndex, cloudinaryAudio, duration, t, isSharedProjectRef, activeProjectIdRef, isCreatingProjectRef, sessionUploadIdRef, lastServerSnapshotRef, setIsAutosaving, setActiveProjectId, setCloudinaryAudio]);
+  }, [buildProjectPayload, mediaTitle, projectMetadata, editorMode, syncMode, activeLineIndex, cloudinaryAudio, duration, t, isSharedProjectRef, activeProjectIdRef, isCreatingProjectRef, sessionUploadIdRef, lastServerSnapshotRef, setIsAutosaving, setIsSaving, setActiveProjectId, setCloudinaryAudio]);
 
   // Save-after-import: fires after state settles
   const [importTick, setImportTick] = useState(0);

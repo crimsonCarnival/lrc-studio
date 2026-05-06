@@ -89,8 +89,12 @@ export function useUrlParamsSync(appState, layoutState) {
     const currentHl = i18n.language?.split('-')[0] || 'en';
     updateParam('hl', currentHl, 'en', true);
     
-    // Sync Mode - ensure it's always present
-    updateParam('mode', editorMode, 'lrc', true);
+    // Sync Mode - ensure it's always present BUT only on project pages
+    if (layoutState.isReady) {
+      updateParam('mode', editorMode, 'lrc', true);
+    } else {
+      updateParam('mode', null, null); // Remove if not on project page
+    }
     
     // Sync Speed
     updateParam('speed', playbackSpeed === 1 ? null : playbackSpeed.toFixed(2));

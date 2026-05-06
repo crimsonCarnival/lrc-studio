@@ -141,7 +141,7 @@ export default function YoutubeSearchPanel({ onSelect, onClose }) {
               <button
                 key={item.videoId}
                 onClick={() => handleSelect(item)}
-                className="group flex gap-3 p-2 rounded-xl hover:bg-zinc-800/60 transition-all text-left w-full"
+                className="group flex gap-3 p-2 rounded-xl hover:bg-zinc-800/60 transition-all text-left w-full cursor-pointer"
               >
                 <div className="relative w-32 h-[72px] shrink-0 rounded-lg overflow-hidden bg-zinc-800">
                   {item.thumbnail && (

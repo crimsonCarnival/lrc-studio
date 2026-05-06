@@ -39,15 +39,15 @@ const SpeedControl = React.memo(function SpeedControl({
   const stepUp = () => applySpeed(Math.round((playbackSpeed + 0.05) * 1000) / 1000);
 
   return (
-    <div className="flex items-center gap-0.5 flex-shrink-0" role="group" aria-label={t('player.speed') || 'Playback speed'}>
+    <div className="flex items-center gap-1 sm:gap-0.5 flex-shrink-0" role="group" aria-label={t('player.speed') || 'Playback speed'}>
       {/* Speed down */}
       <button
         onClick={stepDown}
         disabled={playbackSpeed <= MIN_SPEED}
-        className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors hidden sm:block"
+        className="w-8 h-8 lg:w-6 lg:h-6 flex items-center justify-center rounded-full lg:rounded bg-zinc-800/60 lg:bg-transparent text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
         aria-label="Decrease speed"
       >
-        <Minus className="w-3 h-3" />
+        <Minus className="w-4 h-4 lg:w-3 lg:h-3" />
       </button>
 
       {/* Speed badge + dropdown */}
@@ -57,27 +57,27 @@ const SpeedControl = React.memo(function SpeedControl({
             <Button
               id="speed-btn"
               aria-label={`${t('player.speed') || 'Speed'}: ${playbackSpeed}x`}
-              className={`h-8 sm:h-9 px-2 sm:px-2.5 font-mono font-semibold rounded-full gap-1 ${
+              className={`h-9 lg:h-9 px-2.5 sm:px-3 font-mono font-bold rounded-full gap-1 transition-all ${
                 playbackSpeed !== 1
                   ? 'bg-primary text-zinc-950 shadow-lg shadow-primary/30 hover:bg-primary-dim'
                   : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700'
               }`}
             >
-              {playbackSpeed}x
-              <ChevronDown className="w-2.5 h-2.5 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+              <span className="text-[13px] lg:text-sm">{playbackSpeed}x</span>
+              <ChevronDown className="w-3 h-3 lg:w-2.5 lg:h-2.5 transition-transform duration-200 group-data-[state=open]:rotate-180" />
             </Button>
           </PopoverTrigger>
         </Tip>
         <PopoverContent
-          className="w-44 p-0 overflow-hidden"
+          className="w-48 lg:w-44 p-0 overflow-hidden bg-zinc-950 border-zinc-800 shadow-2xl"
           align="end"
         >
-          <div className="p-1.5 max-h-52 overflow-y-auto">
+          <div className="p-1.5 max-h-64 overflow-y-auto no-scrollbar">
             {SPEED_PRESETS.map((speed) => (
               <PopoverItem
                 key={speed}
                 onClick={() => applySpeed(speed)}
-                className={`font-mono rounded-lg ${
+                className={`font-mono rounded-lg py-2.5 lg:py-1.5 ${
                   playbackSpeed === speed
                     ? 'bg-primary/20 text-primary font-bold hover:bg-primary/30'
                     : ''
@@ -87,9 +87,9 @@ const SpeedControl = React.memo(function SpeedControl({
               </PopoverItem>
             ))}
           </div>
-          <div className="border-t border-zinc-700/50 p-2" onPointerDown={(e) => e.stopPropagation()}>
-            <label className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-1 block">
-              {t('player.customSpeed') || 'Custom'} ({MIN_SPEED}�{MAX_SPEED}x)
+          <div className="border-t border-zinc-800 p-3 lg:p-2" onPointerDown={(e) => e.stopPropagation()}>
+            <label className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-2 block">
+              {t('player.customSpeed') || 'Custom'} ({MIN_SPEED}–{MAX_SPEED}x)
             </label>
             <div className="flex gap-1.5">
               <NumberInput
@@ -101,15 +101,15 @@ const SpeedControl = React.memo(function SpeedControl({
                 onChange={(e) => setCustomSpeedInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCustomSpeedSubmit()}
                 placeholder="e.g. 1.3"
-                className="flex-1 w-0"
+                className="flex-1 w-0 h-9 lg:h-8"
               />
               <Button
-                size="xs"
+                size="sm"
                 onClick={handleCustomSpeedSubmit}
                 disabled={!isCustomValid}
-                className="px-2.5 bg-primary hover:bg-primary-dim disabled:bg-zinc-800 disabled:text-zinc-600 text-zinc-950 font-semibold"
+                className="px-3 bg-primary hover:bg-primary-dim disabled:bg-zinc-900 disabled:text-zinc-700 text-zinc-950 font-bold"
               >
-                ?
+                OK
               </Button>
             </div>
           </div>
@@ -120,10 +120,10 @@ const SpeedControl = React.memo(function SpeedControl({
       <button
         onClick={stepUp}
         disabled={playbackSpeed >= MAX_SPEED}
-        className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors hidden sm:block"
+        className="w-8 h-8 lg:w-6 lg:h-6 flex items-center justify-center rounded-full lg:rounded bg-zinc-800/60 lg:bg-transparent text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
         aria-label="Increase speed"
       >
-        <Plus className="w-3 h-3" />
+        <Plus className="w-4 h-4 lg:w-3 lg:h-3" />
       </button>
     </div>
   );

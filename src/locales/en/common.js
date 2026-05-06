@@ -9,5 +9,9 @@ export default {
   "confirm": "Confirm",
   "back": "Back",
   "close": "Close",
-  "gotIt": "Got it"
+  "gotIt": "Got it",
+  "saveAndLeave": "Save and Leave",
+  "discardAndLeave": "Discard and Leave",
+  "discard": "Discard",
+  "restore": "Restore"
 };

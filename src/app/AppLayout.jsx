@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { UploadCloud } from 'lucide-react';
@@ -21,15 +21,12 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
     handleTimeUpdate, handleDurationChange, handleMediaChange, handleYtUrlChange,
     handleCloudinaryUpload, restoredYtUrl, restoredCloudinaryUpload, restoredPosition,
     restoredSpeed, hasUnsavedChanges, activeProjectId, projectMetadata, setProjectMetadata,
-    isProjectLoading, lines, playbackPosition, syncMode, pendingProject,
-    setIsPlaying, setPlaybackSpeed,
+    isProjectLoading, hasMedia, lines, activeLineIndex, playbackPosition, syncMode, pendingProject,
+    setIsPlaying, setPlaybackSpeed, setProjectSpotifyTrackId,
   } = appState;
 
   const { settings, updateSetting } = settingsState;
-  const { focusMode, setFocusMode, hideEditor, setHideEditor, mobileTab, setMobileTab, isReady, setUnsavedModalTarget, playerTop, lockLayout } = layoutState;
-
-  // Project naming modal state lives here — it bridges appState + layout
-  const [showNamingModal, setShowNamingModal] = useState(false);
+  const { focusMode, setFocusMode, hideEditor, setHideEditor, mobileTab, setMobileTab, isReady, isPlayerMounted, setUnsavedModalTarget, playerTop, lockLayout, showNamingModal, setShowNamingModal } = layoutState;
 
   const handleProjectConfirm = useCallback(({ name, description, tags }) => {
     const newTitle = name || mediaTitle || '';
@@ -38,10 +35,8 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
     setProjectMetadata(newMetadata);
     setShowNamingModal(false);
     handleManualSave({ title: newTitle, metadata: newMetadata });
-    if (!activeProjectId || location.pathname === '/project/new') {
-      navigate('/project/local');
-    }
-  }, [mediaTitle, setMediaTitle, setProjectMetadata, navigate, activeProjectId, handleManualSave, location.pathname]);
+    navigate('/project/local');
+  }, [mediaTitle, setMediaTitle, setProjectMetadata, navigate, handleManualSave, setShowNamingModal]);
 
   return (
     <div className="min-h-screen lg:h-screen bg-zinc-950 relative overflow-hidden flex flex-col">
@@ -82,7 +77,16 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
       />
 
       {/* Main Workspace Wrapper */}
-      <div className={`relative z-base flex-1 px-4 lg:px-6 flex flex-col transition-[padding] duration-500 ease-in-out ${location.pathname === '/' ? 'pt-16' : (playerTop && isReady) ? 'pt-[224px]' : 'pt-20 lg:pt-[88px]'} ${isReady ? (playerTop ? 'pb-6' : 'max-lg:pb-[210px] lg:pb-[160px]') : 'lg:pb-6'}`}>
+      <div className={`relative z-base flex-1 min-h-0 px-0 lg:px-6 flex flex-col transition-[padding] duration-500 ease-in-out
+        ${
+          location.pathname === '/' ? 'pt-16'
+          : (playerTop && isReady && isPlayerMounted) ? 'pt-[200px] lg:pt-[216px]'
+          : 'pt-24 lg:pt-[104px]'
+        }
+        ${(isPlayerMounted && !playerTop) ? 'max-lg:pb-[200px] lg:pb-[128px]' : 'pb-20 lg:pb-6'}
+      `}
+        style={(isPlayerMounted && !playerTop && window.innerWidth >= 1024) ? { marginBottom: '24px' } : undefined}
+      >
         <div className="max-w-[1600px] mx-auto w-full flex-1 flex flex-col min-h-0">
           {children}
         </div>
@@ -90,6 +94,7 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
 
       <AppPlayer
         isReady={isReady}
+        isPlayerMounted={isPlayerMounted}
         isProjectLoading={isProjectLoading}
         playerRef={playerRef}
         mediaTitle={mediaTitle}
@@ -107,10 +112,12 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
         restoredSpeed={restoredSpeed}
         projectMetadata={projectMetadata}
         lines={lines}
+        activeLineIndex={activeLineIndex}
         playbackPosition={playbackPosition}
         syncMode={syncMode}
         playerTop={playerTop}
-        lockLayout={lockLayout}
+        hasMedia={hasMedia}
+        setProjectSpotifyTrackId={setProjectSpotifyTrackId}
       />
 
       <AppMobileNav

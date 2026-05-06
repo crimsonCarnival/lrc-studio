@@ -13,7 +13,7 @@ import SpeedControl from './SpeedControl';
 import { Button } from '@ui/button';
 import { Input } from '@ui/input';
 import { Popover, PopoverTrigger, PopoverContent } from '@ui/popover';
-import { Music2, AlertTriangle, Play, Pause, Headphones, FolderOpen, Repeat, ChevronLeft, ChevronRight, SkipBack, SkipForward, Cloud, Video, ChevronDown, Link2 } from 'lucide-react';
+import { Music2, AlertTriangle, Play, Pause, Headphones, FolderOpen, Repeat, SkipBack, SkipForward, Cloud, Video, ChevronDown, Link2, PanelTop, PanelBottom, Bookmark, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Tip } from '@ui/tip';
 import { uploads as uploadsApi, spotify as spotifyApi, getAccessToken } from '@/api';
 import SpotifyIcon from '@shared/SpotifyIcon';
@@ -22,11 +22,11 @@ import toast from 'react-hot-toast';
 const ALL_SPEED_PRESETS = [0.25, 0.5, 0.75, 1, 1.25, 1.5];
 
 const Player = forwardRef(function Player(
-  { onTimeUpdate, onPlayingChange, onSpeedChange, onDurationChange, onMediaChange, playerRef: _legacyRef, mediaTitle, onTitleChange, initialYtUrl, initialCloudinaryUpload, onYtUrlChange, initialSeek, initialSpeed, lines, playbackPosition, syncMode = false, onCloudinaryUpload },
+  { onTimeUpdate, onPlayingChange, onSpeedChange, onDurationChange, onMediaChange, playerRef: _legacyRef, mediaTitle, onTitleChange, initialYtUrl, initialCloudinaryUpload, onYtUrlChange, initialSeek, initialSpeed, lines, activeLineIndex, playbackPosition, syncMode = false, onCloudinaryUpload, playerTop = false, onDockToggle, onSpotifyTrackIdChange },
   ref,
 ) {
   const { t } = useTranslation();
-  const { settings } = useSettings();
+  const { settings, updateSetting } = useSettings();
 
   const MIN_SPEED = settings.playback?.speedBounds?.min ?? 0.25;
   const MAX_SPEED = settings.playback?.speedBounds?.max ?? 3;
@@ -105,6 +105,25 @@ const Player = forwardRef(function Player(
     [onTimeUpdate],
   );
 
+  // Sync A-B loop with current line if loopCurrentLine is enabled
+  useEffect(() => {
+    if (settings.playback?.loopCurrentLine && lines?.[activeLineIndex] && lines[activeLineIndex].timestamp != null) {
+      const currentLine = lines[activeLineIndex];
+      const a = currentLine.timestamp;
+      let b = currentLine.endTime ?? null;
+      if (b == null) {
+        const nextLine = lines.slice(activeLineIndex + 1).find(l => l.timestamp != null);
+        b = nextLine ? nextLine.timestamp : duration;
+      }
+      setLoopA(a);
+      setLoopB(b);
+    } else if (!settings.playback?.loopCurrentLine) {
+      // Only clear if it was an auto-loop. For simplicity, we'll just clear it when disabled.
+      setLoopA(null);
+      setLoopB(null);
+    }
+  }, [settings.playback?.loopCurrentLine, activeLineIndex, lines, duration]);
+
   const updateDuration = useCallback(
     (d) => {
       setDuration(d);
@@ -162,9 +181,23 @@ const Player = forwardRef(function Player(
   const [showSpotifyBrowser, setShowSpotifyBrowser] = useState(false);
 
   const handleSpotifyBrowserSelect = useCallback((track) => {
-    sp.playTrack(track.trackId, track.title || track.name || '');
+    sp.playTrack(track.id, track.name, false);
+    onTitleChange?.(track.name);
     setShowSpotifyBrowser(false);
-  }, [sp]);
+  }, [sp, onTitleChange]);
+
+  const handleSpotifyLoad = () => {
+    const trimmed = spotifyUrl.trim();
+    if (!trimmed.includes('spotify.com/track/') && !trimmed.startsWith('spotify:track:')) {
+      setSpotifyError(t('spotify.invalidUrl') || 'Invalid Spotify track URL');
+      return;
+    }
+    spotifyApi.createUpload(trimmed).then((result) => {
+      sp.playTrack(result.spotifyTrackId || result.trackMeta?.trackId, result.title || result.trackMeta?.name || '', false);
+      onTitleChange?.(result.title || result.trackMeta?.name || '');
+      setSpotifyUrl('');
+    }).catch((err) => setSpotifyError(err.message || 'Invalid Spotify URL'));
+  };
 
   // ——— CDN URL handling ———
   // Matches Cloudinary CDN URLs
@@ -249,6 +282,7 @@ const Player = forwardRef(function Player(
       const data = await spotifyApi.getCurrentlyPlaying();
       if (data?.track?.trackId) {
         sp.playTrack(data.track.trackId, data.track.name || '');
+        onSpotifyTrackIdChange?.(data.track.trackId);
       } else {
         toast(t('spotify.nothingPlaying'));
       }
@@ -267,6 +301,7 @@ const Player = forwardRef(function Player(
       setTimeout(() => yt.loadYouTube(), 0);
     } else if (upload.source === 'spotify' && upload.spotifyTrackId) {
       sp.playTrack(upload.spotifyTrackId, upload.title || upload.artist || '', false);
+      onSpotifyTrackIdChange?.(upload.spotifyTrackId);
       onTitleChange?.(upload.title || upload.artist || '');
     } else if (upload.source === 'cloudinary' && upload.cloudinaryUrl) {
       fetch(upload.cloudinaryUrl)
@@ -418,17 +453,19 @@ const Player = forwardRef(function Player(
       {/* ─────────────── Desktop full bar content (hidden on mobile) ─────────────── */}
       <div className="max-lg:hidden animate-fade-in overflow-visible flex flex-col items-center w-full">
         {/* Header */}
-        <div className="flex flex-row items-center justify-center gap-2 sm:gap-4 mb-2">
-          <h2 className="text-xs sm:text-sm font-semibold tracking-widest text-zinc-400 flex items-center gap-2 overflow-hidden pb-0.5 min-w-0">
-            <span className="uppercase shrink-0 text-xs sm:text-sm flex items-center gap-1.5"><Headphones className="w-3.5 h-3.5" />{t('player.title')}</span>
-            {hasMedia && mediaTitle && (
-              <div className="flex items-center gap-2 px-1.5 py-0.5 rounded text-xs min-w-0">
-                <Music2 className="w-2.5 h-2.5 text-primary shrink-0" strokeWidth={2.5} />
-                <span className="text-primary normal-case tracking-normal truncate max-w-[300px]">{mediaTitle}</span>
-              </div>
-            )}
-          </h2>
-        </div>
+        {!hasMedia && (
+          <div className="flex flex-row items-center justify-center gap-2 sm:gap-4 mb-2">
+            <h2 className="text-xs sm:text-sm font-semibold tracking-widest text-zinc-400 flex items-center gap-2 overflow-hidden pb-0.5 min-w-0">
+              <span className="uppercase shrink-0 text-xs sm:text-sm flex items-center gap-1.5"><Headphones className="w-3.5 h-3.5" />{t('player.title')}</span>
+              {mediaTitle && (
+                <div className="flex items-center gap-2 px-1.5 py-0.5 rounded text-xs min-w-0">
+                  <Music2 className="w-2.5 h-2.5 text-primary shrink-0" strokeWidth={2.5} />
+                  <span className="text-primary normal-case tracking-normal truncate max-w-[300px]">{mediaTitle}</span>
+                </div>
+              )}
+            </h2>
+          </div>
+        )}
 
         {/* Loading placeholder while YouTube or Spotify initialises */}
         {!hasMedia && (yt.ytLoading || sp.loading) && (
@@ -443,12 +480,20 @@ const Player = forwardRef(function Player(
 
         {/* Unified media loader — shown when no media is loaded */}
         {!hasMedia && !yt.ytLoading && !sp.loading && (
-          <div className="animate-fade-in overflow-hidden">
-            {/* Drop zone — hidden once a URL has been entered */}
-            {!yt.ytUrl.trim() && (<>
+          <div className="animate-fade-in w-full max-w-[1200px] mx-auto px-4 py-4 space-y-4">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700/50 flex items-center gap-2">
+                <Cloud className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">{t('player.uploadPhase') || 'Upload Phase'}</span>
+              </div>
+              <div className="flex-1 h-px bg-zinc-800/60" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Local File Drop Zone */}
               <label
                 htmlFor="audio-file-input"
-                className="flex items-center gap-3 px-3 py-3 cursor-pointer group transition-colors rounded-xl hover:bg-zinc-800/40"
+                className="group relative flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-zinc-800/30 hover:bg-zinc-800/60 border border-zinc-700/40 hover:border-primary/40 transition-all cursor-pointer text-center"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -456,232 +501,143 @@ const Player = forwardRef(function Player(
                   if (file) local.handleFileChange({ target: { files: [file] } });
                 }}
               >
-                <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700/60 flex items-center justify-center group-hover:border-primary/40 group-hover:bg-zinc-700/60 transition-all flex-shrink-0">
-                  <FolderOpen className="w-4 h-4 text-zinc-500 group-hover:text-primary transition-colors" />
+                <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:scale-110 group-hover:border-primary/40 transition-all shadow-sm">
+                  <FolderOpen className="w-6 h-6 text-zinc-500 group-hover:text-primary transition-colors" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-zinc-300 group-hover:text-zinc-100 transition-colors">{t('player.dropAudio')}</p>
-                  <p className="text-[11px] text-zinc-600">{t('player.dropHint')}</p>
+                  <p className="text-sm font-semibold text-zinc-200 group-hover:text-white transition-colors">{t('player.dropAudio')}</p>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">{t('player.dropHint')}</p>
                 </div>
-                <input
-                  id="audio-file-input"
-                  type="file"
-                  accept="audio/*"
-                  onChange={local.handleFileChange}
-                  className="hidden"
-                />
+                <input id="audio-file-input" type="file" accept="audio/*" onChange={local.handleFileChange} className="hidden" />
               </label>
 
-              {/* Divider */}
-              <div className="flex items-center gap-3 px-3 py-0.5">
-                <div className="flex-1 h-px bg-zinc-800" />
-                <span className="text-[10px] text-zinc-600 uppercase tracking-widest">{t('player.or')}</span>
-                <div className="flex-1 h-px bg-zinc-800" />
-              </div>
-            </>)}
-
-            {/* YouTube / CDN URL input — unified */}
-            <div className="px-1 py-2 space-y-2">
-              <div className="flex gap-2 items-center">
-                {yt.ytUrl.trim() && (
-                  <Tip content={t('player.clearUrl')}>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      onClick={() => { yt.setYtUrl(''); yt.setYtError(''); }}
-                      className="w-7 h-8 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/60 shrink-0"
-                    >
-                      ←
-                    </Button>
-                  </Tip>
-                )}
-                <div className="relative flex-1">
-                  {/* Dynamic icon based on detected URL type */}
-                  {detectedUrlType === 'cdn' ? (
-                    <Cloud className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-blue-400/80 shrink-0 pointer-events-none" />
-                  ) : detectedUrlType === 'youtube' ? (
-                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-red-500/70 shrink-0 pointer-events-none" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                    </svg>
-                  ) : (
-                    <Link2 className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 shrink-0 pointer-events-none" />
-                  )}
-                  <Input
-                    id="media-url-input"
-                    type="text"
-                    value={yt.ytUrl}
-                    onChange={(e) => { yt.setYtUrl(e.target.value); yt.setYtError(''); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleUrlLoad(); }}
-                    placeholder="Paste YouTube or CDN audio URL..."
-                    className={`pl-7 bg-zinc-800/60 text-zinc-100 placeholder-zinc-500 ${yt.ytError ? 'border-red-500/70 focus-visible:ring-red-500/25' : 'border-zinc-700 focus-visible:ring-primary/25'}`}
-                  />
+              {/* YouTube / CDN Card */}
+              <div className="flex flex-col gap-4 p-5 rounded-2xl bg-zinc-800/30 border border-zinc-700/40">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center border border-red-500/20">
+                    <Video className="w-4 h-4 text-red-500/70" />
+                  </div>
+                  <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider">{t('uploads.youtube') || 'YouTube'} / CDN</span>
                 </div>
-                <Button
-                  id="load-media-url-btn"
-                  onClick={handleUrlLoad}
-                  disabled={cdnLoading}
-                  className={`px-4 text-white text-sm font-medium rounded-lg shrink-0 ${detectedUrlType === 'cdn'
-                      ? 'bg-blue-600 hover:bg-blue-500'
-                      : 'bg-red-600 hover:bg-red-500'
-                    }`}
-                >
-                  {cdnLoading ? '…' : t('player.load')}
-                </Button>
-              </div>
-              {yt.ytError && (
-                <p className="text-xs text-red-400 flex items-center gap-1.5 animate-fade-in">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                  {yt.ytError}
-                </p>
-              )}
-            </div>
-
-            {/* Spotify section */}
-            {getAccessToken() && (
-              <div className="px-1 py-2 space-y-2">
-                <div className="flex items-center gap-3 px-2 py-0.5">
-                  <div className="flex-1 h-px bg-zinc-800" />
-                  <span className="text-[10px] text-zinc-600 uppercase tracking-widest">{t('player.or')}</span>
-                  <div className="flex-1 h-px bg-zinc-800" />
-                </div>
-
-                {showSpotifyBrowser ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-green-400 flex items-center gap-1.5">
-                        <SpotifyIcon className="w-3.5 h-3.5" />
-                        {t('spotify.browse')}
-                      </span>
-                      <button onClick={() => setShowSpotifyBrowser(false)} className="text-[10px] text-zinc-500 hover:text-zinc-300">
-                        {t('spotify.pasteUrl')}
-                      </button>
-                    </div>
-                    <SpotifyBrowser
-                      onSelectTrack={handleSpotifyBrowserSelect}
-                      onClose={() => setShowSpotifyBrowser(false)}
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 pointer-events-none" />
+                    <Input
+                      value={yt.ytUrl}
+                      onChange={(e) => { yt.setYtUrl(e.target.value); yt.setYtError(''); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleUrlLoad(); }}
+                      placeholder={t('player.pasteUrl') || 'Paste YouTube or CDN URL...'}
+                      className="pl-9 bg-zinc-900/50 border-zinc-700/50 text-sm h-10"
                     />
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex gap-2 items-center">
-                      <div className="relative flex-1">
-                        <SpotifyIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-500/70 shrink-0 pointer-events-none" />
-                        <Input
-                          type="text"
-                          value={spotifyUrl}
-                          onChange={(e) => { setSpotifyUrl(e.target.value); setSpotifyError(''); }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              const trimmed = spotifyUrl.trim();
-                              if (!trimmed.includes('spotify.com/track/') && !trimmed.startsWith('spotify:track:')) {
-                                setSpotifyError(t('spotify.invalidUrl') || 'Invalid Spotify track URL');
-                                return;
-                              }
-                              spotifyApi.createUpload(trimmed).then((result) => {
-                                sp.playTrack(result.spotifyTrackId || result.trackMeta?.trackId, result.title || result.trackMeta?.name || '', false);
-                                setSpotifyUrl('');
-                              }).catch((err) => setSpotifyError(err.message || 'Invalid Spotify URL'));
-                            }
-                          }}
-                          placeholder={t('player.pasteSpotifyUrl') || 'Paste Spotify track URL...'}
-                          className={`pl-7 bg-zinc-800/60 text-zinc-100 placeholder-zinc-500 ${spotifyError ? 'border-red-500/70 focus-visible:ring-red-500/25' : 'border-zinc-700 focus-visible:ring-primary/25'}`}
-                        />
-                      </div>
-                      <Button
-                        onClick={() => {
-                          const trimmed = spotifyUrl.trim();
-                          if (!trimmed.includes('spotify.com/track/') && !trimmed.startsWith('spotify:track:')) {
-                            setSpotifyError(t('spotify.invalidUrl') || 'Invalid Spotify track URL');
-                            return;
-                          }
-                          spotifyApi.createUpload(trimmed).then((result) => {
-                            sp.playTrack(result.spotifyTrackId || result.trackMeta?.trackId, result.title || result.trackMeta?.name || '', false);
-                            onTitleChange?.(result.title || result.trackMeta?.name || '');
-                            setSpotifyUrl('');
-                          }).catch((err) => setSpotifyError(err.message || 'Invalid Spotify URL'));
-                        }}
-                        className="px-4 bg-green-600 hover:bg-green-500 text-white text-sm font-medium rounded-lg shrink-0"
-                      >
+                  <Button
+                    onClick={handleUrlLoad}
+                    disabled={cdnLoading}
+                    className="w-full bg-red-600 hover:bg-red-500 text-white font-semibold h-10 shadow-sm"
+                  >
+                    {cdnLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : t('player.load')}
+                  </Button>
+                  {yt.ytError && <p className="text-[10px] text-red-400 mt-1">{yt.ytError}</p>}
+                </div>
+              </div>
+
+              {/* Spotify / Cloud Card */}
+              <div className="flex flex-col gap-4 p-5 rounded-2xl bg-zinc-800/30 border border-zinc-700/40">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center border border-green-500/20">
+                      <SpotifyIcon className="w-4 h-4 text-green-500/70" />
+                    </div>
+                    <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Spotify</span>
+                  </div>
+                  {getAccessToken() && (
+                    <button onClick={() => setShowSpotifyBrowser(true)} className="text-[10px] font-bold text-green-500 hover:text-green-400 uppercase tracking-widest">
+                      {t('spotify.browse')}
+                    </button>
+                  )}
+                </div>
+
+                {getAccessToken() ? (
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <SpotifyIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500/50 pointer-events-none" />
+                      <Input
+                        value={spotifyUrl}
+                        onChange={(e) => { setSpotifyUrl(e.target.value); setSpotifyError(''); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSpotifyLoad(); }}
+                        placeholder={t('player.pasteSpotifyUrl')}
+                        className="pl-9 bg-zinc-900/50 border-zinc-700/50 text-sm h-10"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={handleSpotifyLoad} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-semibold h-10">
                         {t('player.load')}
                       </Button>
+                      <Tip content={t('spotify.syncNowPlaying')}>
+                        <Button
+                          variant="outline"
+                          onClick={handleSyncNowPlaying}
+                          disabled={syncingNowPlaying}
+                          className="px-3 border-zinc-700 bg-zinc-800/50 hover:bg-zinc-700 h-10"
+                        >
+                          <Headphones className={`w-4 h-4 text-green-500 ${syncingNowPlaying ? 'animate-pulse' : ''}`} />
+                        </Button>
+                      </Tip>
                     </div>
-                    {spotifyError && (
-                      <p className="text-xs text-red-400 flex items-center gap-1.5 animate-fade-in">
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                        {spotifyError}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-3 px-1">
-                      <button
-                        onClick={() => setShowSpotifyBrowser(true)}
-                        className="flex items-center gap-1.5 text-[10px] text-green-400 hover:text-green-300 font-medium"
-                      >
-                        <SpotifyIcon className="w-3 h-3" />
-                        {t('spotify.browseLibrary')}
-                      </button>
-                      <span className="text-zinc-700">·</span>
-                      <button
-                        onClick={handleSyncNowPlaying}
-                        disabled={syncingNowPlaying}
-                        className="flex items-center gap-1.5 text-[10px] text-green-400 hover:text-green-300 font-medium disabled:opacity-50"
-                      >
-                        <Headphones className="w-3 h-3" />
-                        {syncingNowPlaying ? t('spotify.syncing') : t('spotify.syncNowPlaying')}
-                      </button>
-                    </div>
+                    {spotifyError && <p className="text-[10px] text-red-400 mt-1">{spotifyError}</p>}
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-2 border border-dashed border-zinc-700/50 rounded-xl p-4 bg-zinc-900/20">
+                    <SpotifyIcon className="w-6 h-6 text-zinc-700 opacity-50" />
+                    <p className="text-[10px] text-zinc-500 text-center uppercase tracking-widest">{t('spotify.authRequired') || 'Auth Required'}</p>
                   </div>
                 )}
               </div>
-            )}
+            </div>
 
-            {/* Uploads selector */}
+            {/* Uploads Popover / Selector - Unified row at bottom */}
             {getAccessToken() && (
-              <div className="px-1 pb-1">
-                <div className="flex items-center gap-3 px-2 py-0.5 mb-1">
-                  <div className="flex-1 h-px bg-zinc-800" />
-                  <span className="text-[10px] text-zinc-600 uppercase tracking-widest">{t('player.or')}</span>
-                  <div className="flex-1 h-px bg-zinc-800" />
-                </div>
+              <div className="pt-2">
                 <Popover onOpenChange={(open) => { if (open) fetchUploads(); }}>
                   <PopoverTrigger asChild>
                     <Button
-                      variant="outline"
-                      className="w-full justify-between bg-zinc-800/50 border-zinc-700/60 hover:bg-zinc-700/60 hover:border-zinc-600 text-zinc-300 text-sm h-9"
+                      variant="ghost"
+                      className="w-full flex items-center justify-center gap-3 h-12 rounded-2xl bg-zinc-800/20 hover:bg-zinc-800/40 border border-zinc-800/50 hover:border-zinc-700 transition-all text-zinc-400 hover:text-zinc-200"
                     >
-                      <span className="flex items-center gap-2">
-                        <Cloud className="w-3.5 h-3.5 text-zinc-500" />
-                        {t('uploads.selectFromUploads')}
-                      </span>
-                      <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
+                      <Cloud className="w-4 h-4 text-zinc-500" />
+                      <span className="text-xs font-semibold uppercase tracking-widest">{t('uploads.selectFromUploads')}</span>
+                      <ChevronDown className="w-3.5 h-3.5 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-h-[200px] overflow-y-auto p-1" align="start">
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-h-[300px] overflow-y-auto p-1 glass-dark border-zinc-700/50 shadow-2xl" align="center">
                     {mediaUploads.length === 0 ? (
-                      <p className="text-xs text-zinc-500 text-center py-3">{t('uploads.empty')}</p>
+                      <p className="text-xs text-zinc-500 text-center py-6">{t('uploads.empty')}</p>
                     ) : (
-                      mediaUploads.map((upload) => (
-                        <button
-                          key={upload.id}
-                          onClick={() => handleSelectUpload(upload)}
-                          className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md text-left hover:bg-zinc-700/60 transition-colors"
-                        >
-                          <div className="w-8 h-8 rounded flex-shrink-0 overflow-hidden bg-zinc-700/50 flex items-center justify-center">
-                            {upload.source === 'youtube'
-                              ? <Video className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                              : upload.source === 'spotify'
-                                ? <SpotifyIcon className="w-3.5 h-3.5 text-green-400 shrink-0" />
-                                : <Cloud className="w-3.5 h-3.5 text-blue-400 shrink-0" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-zinc-200 truncate">
-                              {upload.title || upload.fileName || upload.youtubeUrl || t('uploads.untitled')}
-                            </p>
-                            {upload.duration > 0 && (
-                              <p className="text-[10px] text-zinc-500">{formatTime(upload.duration)}</p>
-                            )}
-                          </div>
-                        </button>
-                      ))
+                      <div className="grid grid-cols-1 gap-1">
+                        {mediaUploads.map((upload) => (
+                          <button
+                            key={upload.id}
+                            onClick={() => handleSelectUpload(upload)}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-zinc-800/80 transition-all group"
+                          >
+                            <div className="w-10 h-10 rounded-lg flex-shrink-0 overflow-hidden bg-zinc-800 border border-zinc-700 group-hover:border-primary/40 flex items-center justify-center transition-all">
+                              {upload.source === 'youtube'
+                                ? <Video className="w-4 h-4 text-red-400" />
+                                : upload.source === 'spotify'
+                                  ? <SpotifyIcon className="w-4 h-4 text-green-400" />
+                                  : <Cloud className="w-4 h-4 text-blue-400" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-zinc-200 truncate group-hover:text-primary transition-colors">
+                                {upload.title || upload.fileName || upload.youtubeUrl || t('uploads.untitled')}
+                              </p>
+                              <p className="text-[10px] text-zinc-500 mt-0.5 uppercase tracking-widest font-bold opacity-60">
+                                {upload.source} {upload.duration > 0 && `· ${formatTime(upload.duration)}`}
+                              </p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </PopoverContent>
                 </Popover>
@@ -692,156 +648,164 @@ const Player = forwardRef(function Player(
 
         {/* Local audio waveform */}
         {source === 'local' && local.localUrl && (
-          <div className="animate-fade-in space-y-3">
+          <div className="animate-fade-in w-full max-w-[1200px] mx-auto">
             <WaveformDisplay
               showWaveform={settings.playback?.showWaveform}
-              waveformSnap={settings.playback?.waveformSnap}
               audioRef={audioRef}
               localUrl={local.localUrl}
-              onTimeUpdate={onTimeUpdate}
               lines={lines}
               playbackPosition={playbackPosition}
               duration={duration}
+              onSeek={seek}
+              loopA={loopA}
+              loopB={loopB}
+              onLoopChange={(a, b) => { setLoopA(a); setLoopB(b); }}
             />
           </div>
         )}
 
         {(local.localUrl || yt.ytReady || sp.ready) && (
-          <div className="space-y-1 sm:space-y-2 pt-1 sm:pt-2 animate-fade-in w-full max-w-[1200px] mx-auto">
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap justify-center w-full">
-              <Button
-                id="play-pause-btn"
-                onClick={togglePlay}
-                aria-label={isPlaying ? t('shortcuts.playPause') || 'Pause' : t('shortcuts.playPause') || 'Play'}
-                className="w-9 sm:w-10 h-9 sm:h-10 rounded-full bg-primary hover:bg-primary-dim text-zinc-950 hover:scale-105 active:scale-95 glow-primary flex-shrink-0 p-0"
-              >
-                {isPlaying ? (
-                  <Pause className="w-3 sm:w-4 h-3 sm:h-4" fill="currentColor" />
-                ) : (
-                  <Play className="w-3 sm:w-4 h-3 sm:h-4 ml-0.5" fill="currentColor" />
-                )}
-              </Button>
+          <div className="animate-fade-in w-full max-w-[1200px] mx-auto">
+            <div className="flex items-center justify-between gap-3 w-full relative min-h-[48px] pb-1.5 lg:pb-2">
 
-              <span className="text-xs text-zinc-400 font-mono tabular-nums w-14 sm:w-[68px] text-right shrink-0">
-                {formatTime(currentTime)}
-              </span>
+               {/* ── Left: Dock Toggle ── */}
+               <div className="flex items-center gap-2 z-10">
+                 <Tip content={playerTop ? (t('player.moveToBottom') || 'Move to bottom') : (t('player.moveToTop') || 'Move to top')}>
+                   <Button
+                     id="dock-toggle-btn"
+                     variant="ghost"
+                     size="icon"
+                     onClick={() => onDockToggle?.()}
+                     className="w-8 h-8 shrink-0 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/60"
+                   >
+                     {playerTop ? <PanelBottom className="w-4 h-4" /> : <PanelTop className="w-4 h-4" />}
+                   </Button>
+                 </Tip>
+               </div>
+ 
+               {/* ── CENTERED: Transport Cluster (Times + Speed + Nudges + Play + Volume) ── */}
+               <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1 sm:gap-4 z-20">
+                 {/* Current Time on the left */}
+                 <span className="text-xs text-zinc-400 font-mono tabular-nums shrink-0 min-w-[44px] text-right">
+                   {formatTime(currentTime)}
+                 </span>
 
-              {/* Frame step back */}
-              <Tip content="-0.01s">
-                <button
-                  onClick={() => seek(Math.max(0, currentTime - 0.01))}
-                  className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 transition-colors flex-shrink-0 hidden sm:block"
-                >
-                  <ChevronLeft className="w-3 h-3" />
-                </button>
-              </Tip>
+                 <div className="w-px h-4 bg-zinc-800/60 shrink-0 mx-1" />
 
-              <div className="flex-1 min-w-0 relative">
-                {/* A-B loop region overlay */}
-                {loopA != null && loopB != null && duration > 0 && (
-                  <div
-                    className="absolute top-0 bottom-0 bg-accent-purple/15 border-x border-accent-purple/40 rounded-sm pointer-events-none z-base"
-                    style={{
-                      left: `${(loopA / duration) * 100}%`,
-                      width: `${((loopB - loopA) / duration) * 100}%`,
-                    }}
-                  />
-                )}
-                <input
-                  id="seek-slider"
-                  type="range"
-                  min={0}
-                  max={duration || 0}
-                  step={0.1}
-                  value={currentTime}
-                  aria-label="Seek"
-                  aria-valuenow={Math.round(currentTime)}
-                  aria-valuemin={0}
-                  aria-valuemax={Math.round(duration)}
-                  onChange={(e) => {
-                    const raw = parseFloat(e.target.value);
-                    // Shift-drag: 10:1 precision (move 1/10th of normal)
-                    if (e.nativeEvent?.shiftKey) {
-                      const delta = (raw - currentTime) / 10;
-                      seek(Math.max(0, Math.min(duration, currentTime + delta)));
-                    } else {
-                      seek(raw);
-                    }
-                  }}
-                  className="w-full relative z-raised"
-                  style={{
-                    background: `linear-gradient(to right, var(--color-primary) ${duration ? (currentTime / duration) * 100 : 0}%, rgba(255, 255, 255, 0.15) ${duration ? (currentTime / duration) * 100 : 0}%)`,
-                  }}
-                />
-              </div>
+                 {/* Speed */}
+                 <SpeedControl
+                   playbackSpeed={playbackSpeed}
+                   applySpeed={applySpeed}
+                   MIN_SPEED={MIN_SPEED}
+                   MAX_SPEED={MAX_SPEED}
+                   SPEED_PRESETS={SPEED_PRESETS}
+                 />
 
-              {/* Frame step forward */}
-              <Tip content="+0.01s">
-                <button
-                  onClick={() => seek(Math.min(duration, currentTime + 0.01))}
-                  className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 transition-colors flex-shrink-0 hidden sm:block"
-                >
-                  <ChevronRight className="w-3 h-3" />
-                </button>
-              </Tip>
+                 <div className="flex items-center gap-0.5 sm:gap-1.5">
+                   <Tip content="-0.1s">
+                     <Button
+                       variant="ghost"
+                       size="icon"
+                       onClick={() => seek(currentTime - 0.1)}
+                       className="w-8 h-8 text-zinc-500 hover:text-zinc-200"
+                     >
+                       <ChevronLeft className="w-4 h-4" />
+                     </Button>
+                   </Tip>
+ 
+                   <Tip content={`-${settings.playback?.seekTime ?? 5}s`}>
+                     <Button
+                       variant="ghost"
+                       size="icon"
+                       onClick={() => seek(Math.max(0, currentTime - (settings.playback?.seekTime ?? 5)))}
+                       className="w-8 h-8 text-zinc-500 hover:text-zinc-200"
+                     >
+                       <SkipBack className="w-4 h-4" />
+                     </Button>
+                   </Tip>
+ 
+                   <Button
+                     id="play-pause-btn"
+                     onClick={togglePlay}
+                     aria-label={isPlaying ? t('shortcuts.playPause') || 'Pause' : t('shortcuts.playPause') || 'Play'}
+                     className="w-10 h-10 rounded-full bg-primary hover:bg-primary-dim text-zinc-950 hover:scale-105 active:scale-95 glow-primary flex-shrink-0 p-0"
+                   >
+                     {isPlaying ? (
+                       <Pause className="w-4 h-4" fill="currentColor" />
+                     ) : (
+                       <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                     )}
+                   </Button>
+ 
+                   <Tip content={`+${settings.playback?.seekTime ?? 5}s`}>
+                     <Button
+                       variant="ghost"
+                       size="icon"
+                       onClick={() => seek(Math.min(duration, currentTime + (settings.playback?.seekTime ?? 5)))}
+                       className="w-8 h-8 text-zinc-500 hover:text-zinc-200"
+                     >
+                       <SkipForward className="w-4 h-4" />
+                     </Button>
+                   </Tip>
+ 
+                   <Tip content="+0.1s">
+                     <Button
+                       variant="ghost"
+                       size="icon"
+                       onClick={() => seek(currentTime + 0.1)}
+                       className="w-8 h-8 text-zinc-500 hover:text-zinc-200"
+                     >
+                       <ChevronRight className="w-4 h-4" />
+                     </Button>
+                   </Tip>
+                 </div>
 
-              <span className="text-xs text-zinc-400 font-mono tabular-nums w-14 sm:w-[68px] text-left shrink-0">
-                {formatTime(duration)}
-              </span>
+                 {/* Volume */}
+                 <VolumeControl />
 
-              <VolumeControl />
+                 <div className="w-px h-4 bg-zinc-800/60 shrink-0 mx-1" />
 
-              <Tip content={loopA != null && loopB != null
-                ? `${t('player.loopActive') || 'Loop active'}: ${formatTime(loopA)} – ${formatTime(loopB)} (click to clear)`
-                : t('player.setLoop') || 'Set A-B loop'
-              }>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    if (loopA != null && loopB != null) {
-                      clearLoop();
-                    } else {
-                      const now = source === 'local'
-                        ? (audioRef.current?.currentTime ?? currentTime)
-                        : source === 'youtube' ? (yt.getCurrentTime?.() ?? currentTime)
-                          : currentTime;
-                      if (lines?.length) {
-                        let activeIdx = -1;
-                        for (let i = 0; i < lines.length; i++) {
-                          if (lines[i].timestamp != null && lines[i].timestamp <= now) activeIdx = i;
-                        }
-                        if (activeIdx >= 0) {
-                          const activeLine = lines[activeIdx];
-                          const a = activeLine.timestamp;
-                          let b = activeLine.endTime ?? null;
-                          if (b == null) {
-                            b = duration;
-                            for (let i = activeIdx + 1; i < lines.length; i++) {
-                              if (lines[i].timestamp != null) { b = lines[i].timestamp; break; }
-                            }
-                          }
-                          setLoop(a, b);
-                        }
-                      }
-                    }
-                  }}
-                  className={`rounded-full flex-shrink-0 ${loopA != null && loopB != null
-                    ? 'bg-accent-purple/20 text-accent-purple hover:bg-accent-purple/30'
-                    : 'bg-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700'
-                    }`}
-                >
-                  <Repeat className="w-4 h-4" />
-                </Button>
-              </Tip>
+                 {/* Total Duration on the right */}
+                 <span className="text-xs text-zinc-500 font-mono tabular-nums shrink-0 min-w-[44px]">
+                   {formatTime(duration)}
+                 </span>
+               </div>
+ 
+               {/* ── Right Section: Actions, Loop ── */}
+               <div className="flex items-center gap-2 sm:gap-3 z-10">
 
-              <SpeedControl
-                playbackSpeed={playbackSpeed}
-                applySpeed={applySpeed}
-                MIN_SPEED={MIN_SPEED}
-                MAX_SPEED={MAX_SPEED}
-                SPEED_PRESETS={SPEED_PRESETS}
-              />
+ 
+                 {syncMode && (
+                   <Tip content={t('player.mark') || 'Mark'}>
+                     <Button
+                       id="mark-btn"
+                       variant="ghost"
+                       size="icon"
+                       onPointerDown={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent('editor:mark')); }}
+                       className="w-8 h-8 shrink-0 text-zinc-400 hover:text-primary hover:bg-primary/10"
+                     >
+                       <Bookmark className="w-4 h-4" />
+                     </Button>
+                   </Tip>
+                 )}
+ 
+                 <Tip content={settings.playback?.loopCurrentLine
+                   ? `${t('player.loopActive') || 'Loop'}: ${formatTime(loopA)} – ${formatTime(loopB)} · click to disable`
+                   : t('player.setLoop') || 'Loop current line'
+                 }>
+                   <Button
+                     variant="ghost"
+                     size="icon"
+                     onClick={() => updateSetting('playback.loopCurrentLine', !settings.playback?.loopCurrentLine)}
+                     className={`rounded-full shrink-0 h-8 w-8 ${settings.playback?.loopCurrentLine
+                       ? 'bg-violet-500/20 text-violet-400 hover:bg-violet-500/30 border border-violet-500/30'
+                       : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800'
+                     }`}
+                   >
+                     <Repeat className="w-4 h-4" />
+                   </Button>
+                 </Tip>
+               </div>
             </div>
           </div>
         )}
@@ -1020,13 +984,13 @@ const Player = forwardRef(function Player(
               </div>
 
               {/* Bottom Row: Secondary Controls */}
-              <div className="flex items-center justify-around w-full gap-2 px-2">
+              <div className="flex items-center justify-between w-full gap-1 px-1">
                 <button
                   onClick={() => seek(Math.max(0, currentTime - (settings.playback?.seekTime ?? 5)))}
-                  className="flex flex-col items-center justify-center w-12 h-12 rounded-xl text-zinc-400 active:text-zinc-100 active:bg-zinc-800 transition-all"
+                  className="flex flex-col items-center justify-center w-14 h-14 rounded-2xl text-zinc-400 active:text-zinc-100 active:bg-zinc-800 transition-all shrink-0"
                 >
-                  <SkipBack className="w-5 h-5" />
-                  <span className="text-[9px] font-bold mt-0.5 text-zinc-500">{settings.playback?.seekTime ?? 5}</span>
+                  <SkipBack className="w-6 h-6" />
+                  <span className="text-[10px] font-bold mt-1 text-zinc-500">{settings.playback?.seekTime ?? 5}</span>
                 </button>
 
                 <button
@@ -1054,29 +1018,30 @@ const Player = forwardRef(function Player(
                       }
                     }
                   }}
-                  className={`flex flex-col items-center justify-center w-12 h-12 rounded-xl transition-all ${loopA != null && loopB != null ? 'text-accent-purple bg-accent-purple/10' : 'text-zinc-400 active:bg-zinc-800'}`}
+                  className={`flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all shrink-0 ${loopA != null && loopB != null ? 'text-accent-purple bg-accent-purple/10' : 'text-zinc-400 active:bg-zinc-800'}`}
                 >
-                  <Repeat className="w-5 h-5" />
+                  <Repeat className="w-6 h-6" />
+                  <span className="text-[9px] font-bold mt-1 opacity-60 uppercase tracking-tight">{t('player.loop') || 'Loop'}</span>
                 </button>
 
-                <div className="w-12 h-12 flex items-center justify-center">
+                <div className="w-14 h-14 flex items-center justify-center shrink-0">
                   <VolumeControl />
                 </div>
 
                 <button
                   onClick={() => seek(Math.min(duration, currentTime + (settings.playback?.seekTime ?? 5)))}
-                  className="flex flex-col items-center justify-center w-12 h-12 rounded-xl text-zinc-400 active:text-zinc-100 active:bg-zinc-800 transition-all"
+                  className="flex flex-col items-center justify-center w-14 h-14 rounded-2xl text-zinc-400 active:text-zinc-100 active:bg-zinc-800 transition-all shrink-0"
                 >
-                  <SkipForward className="w-5 h-5" />
-                  <span className="text-[9px] font-bold mt-0.5 text-zinc-500">{settings.playback?.seekTime ?? 5}</span>
+                  <SkipForward className="w-6 h-6" />
+                  <span className="text-[10px] font-bold mt-1 text-zinc-500">{settings.playback?.seekTime ?? 5}</span>
                 </button>
 
                 {syncMode && (
                   <button
                     onPointerDown={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent('editor:mark')); }}
-                    className="w-12 h-12 rounded-2xl bg-primary/20 border border-primary/40 text-primary active:bg-primary/30 active:scale-95 transition-all flex items-center justify-center"
+                    className="w-14 h-14 rounded-3xl bg-primary/20 border border-primary/40 text-primary active:bg-primary/30 active:scale-95 transition-all flex items-center justify-center shrink-0"
                   >
-                    <div className="w-3 h-3 rounded-full bg-current shadow-[0_0_10px_rgba(var(--color-primary-rgb),0.5)]" />
+                    <div className="w-4 h-4 rounded-full bg-current shadow-[0_0_15px_rgba(var(--color-primary-rgb),0.6)]" />
                   </button>
                 )}
               </div>
@@ -1093,14 +1058,12 @@ const Player = forwardRef(function Player(
               <SpotifyIcon className="w-4 h-4" />
               {t('spotify.browse')}
             </span>
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={() => setShowSpotifyBrowser(false)}
               className="text-zinc-400 hover:text-zinc-200 h-7 px-2 text-xs"
             >
               ✕
-            </Button>
+            </button>
           </div>
           <div className="flex-1 overflow-y-auto p-3">
             <SpotifyBrowser

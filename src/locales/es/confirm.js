@@ -20,5 +20,7 @@ export default {
   "deleteProjectTitle": "Eliminar proyecto",
   "deleteUpload": "¿Eliminar \"{{title}}\" de tu biblioteca? No se puede deshacer.",
   "deleteUploadTitle": "Eliminar archivo",
-  "replaceTitle": "Reemplazar letras"
+  "replaceTitle": "Reemplazar letras",
+  "unsavedChangesTitle": "Cambios sin guardar",
+  "unsavedChangesMessage": "Tienes cambios sin guardar. ¿Qué deseas hacer antes de salir?"
 };

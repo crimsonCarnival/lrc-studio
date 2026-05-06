@@ -23,5 +23,9 @@ export default {
   "clearLoop": "Quitar repetición",
   "pasteSpotifyUrl": "Pega la URL de una pista de Spotify...",
   "spotifyPremiumRequired": "Se necesita Spotify Premium para reproducir",
-  "spotifyNotConnected": "Conecta Spotify en Ajustes para reproducir pistas"
+  "spotifyNotConnected": "Conecta Spotify en Ajustes para reproducir pistas",
+  "moveToTop": "Mover arriba",
+  "moveToBottom": "Mover abajo",
+  "mark": "Marcar posición actual",
+  "loop": "Bucle"
 };

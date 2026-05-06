@@ -55,6 +55,7 @@ export function useSharedProject({
   duration,
   projectYtUrl,
   cloudinaryAudio,
+  projectSpotifyTrackId,
 }) {
   const { t } = useTranslation();
   const { updateSetting } = useSettings();
@@ -179,6 +180,9 @@ export function useSharedProject({
       setShareModalState({
         url: `${window.location.origin}/share/${sharedId}`,
         ytUrl: projectYtUrl,
+        cloudinaryAudio,
+        spotifyTrackId: projectSpotifyTrackId,
+        mediaSource: projectSpotifyTrackId ? 'spotify' : (cloudinaryAudio ? 'cloudinary' : (projectYtUrl ? 'youtube' : 'none')),
         linesCount: lines.length,
         hasSynced: lines.some((l) => l.timestamp != null),
         readOnly: true,

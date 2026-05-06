@@ -7,7 +7,7 @@ import { Button } from '@ui/button';
 import { Input } from '@ui/input';
 import { Checkbox } from '@ui/checkbox';
 import { Kbd } from "@shared/Kbd";
-import { Pencil, Play, ChevronLeft, ChevronRight, Plus, X, Trash2, Repeat, MoreHorizontal, GripVertical } from 'lucide-react';
+import { Pencil, Play, ChevronLeft, ChevronRight, Plus, X, Trash2, Repeat, MoreHorizontal, GripVertical, CopyPlus, ArrowUpToLine, ArrowDownToLine } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -22,6 +22,8 @@ import { Tip } from '@ui/tip';
  */
 function ReadingInput({ defaultValue, onCommit, onCancel, className, style, placeholder, readingFormat }) {
   const ref = useRef(null);
+  const [error, setError] = useState(false);
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -29,22 +31,50 @@ function ReadingInput({ defaultValue, onCommit, onCancel, className, style, plac
     window.wanakana?.bind(el, { IMEMode: toKana });
     return () => { window.wanakana?.unbind(el); };
   }, [readingFormat]);
+
+  const commit = (val) => {
+    if (!val) {
+      onCommit('');
+      return;
+    }
+
+    let final = val;
+    const isKatakana = readingFormat === 'katakana';
+
+    // Force trailing 'n' to 'ん'/'ン' if it didn't convert
+    if (final.toLowerCase().endsWith('n')) {
+      final = final.slice(0, -1) + (isKatakana ? 'ン' : 'ん');
+    }
+
+    // Final conversion pass to catch any lingering romaji
+    final = isKatakana ? window.wanakana?.toKatakana(final) : window.wanakana?.toHiragana(final);
+
+    // Validate: must be entirely Kana (Hiragana, Katakana, or long vowel marks)
+    if (final && !window.wanakana?.isKana(final)) {
+      setError(true);
+      setTimeout(() => setError(false), 1000);
+      return;
+    }
+
+    onCommit(final);
+  };
+
   return (
     <input
       ref={ref}
       autoFocus
       type="text"
       defaultValue={defaultValue}
-      onBlur={(e) => onCommit(e.target.value)}
+      onBlur={(e) => commit(e.target.value)}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') onCommit(e.target.value);
+        if (e.key === 'Enter') commit(e.target.value);
         if (e.key === 'Escape') onCancel();
         e.stopPropagation();
       }}
       onClick={(e) => e.stopPropagation()}
       placeholder={placeholder ?? '…'}
-      className={className}
-      style={style}
+      className={`${className} caret-primary ${error ? 'ring-2 ring-red-500 animate-shake bg-red-500/10' : ''}`}
+      style={{ ...style, minWidth: '24px' }}
     />
   );
 }
@@ -125,13 +155,13 @@ function TimestampBadge({ value, isSynced, isFocused, isActive, precision, onCli
         onClick={onClick}
         onDoubleClick={onDoubleClick}
         onWheel={onWheel}
-        className={`flex items-center rounded px-1.5 py-0.5 text-[10px] font-mono tabular-nums transition-all duration-200 ease-out w-fit ${isFocused
+        className={`flex items-center rounded-md lg:rounded px-2 py-0.5 lg:px-1.5 lg:py-0.5 text-[9px] lg:text-[10px] font-mono tabular-nums transition-all duration-200 ease-out w-fit ${isFocused
             ? 'bg-primary/25 ring-1 ring-primary/50 text-primary font-semibold'
             : isSynced
-              ? 'bg-zinc-800 border border-zinc-700/50 text-primary hover:border-primary/40 hover:bg-zinc-700/60'
+              ? `bg-zinc-900 lg:bg-zinc-800 border border-zinc-800 lg:border-zinc-700/50 text-primary hover:border-primary/40 hover:bg-zinc-700/60 transition-opacity ${!isActive ? 'opacity-50 hover:opacity-100' : 'opacity-100'}`
               : isActive
-                ? 'text-zinc-400 animate-pulse-glow hover:bg-zinc-800/50 border border-transparent'
-                : 'text-zinc-600 hover:bg-zinc-800/50 border border-transparent'
+                ? 'text-zinc-500 lg:text-zinc-400 animate-pulse-glow hover:bg-zinc-800/50 border border-transparent'
+                : 'text-zinc-700 lg:text-zinc-600 hover:bg-zinc-800/50 border border-transparent'
           }`}
       >
         {isSynced ? formatTimestamp(value, precision) : '--:--.--'}
@@ -226,7 +256,12 @@ const EditorLineItem = React.memo(({
   handleStampTargetToggle,
   playbackPosition,
   upcomingDepth,
+  onWordMenu,
+  onLineMenu,
+  isModified,
 }) => {
+
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
   const { t } = useTranslation();
   const [editingTimestamp, setEditingTimestamp] = useState(null); // null | 'start' | 'end'
   const [editingReadingWordIndex, setEditingReadingWordIndex] = useState(null);
@@ -354,30 +389,30 @@ const EditorLineItem = React.memo(({
       onDragEnd={handleDragEnd}
       onDrop={(e) => handleDrop(e, i)}
       style={{ animationDelay: staggerDelay }}
-      className={`flex items-center gap-2 sm:gap-3 px-3 py-2 rounded-lg transition-colors duration-300 ease-out cursor-pointer group relative overflow-hidden animate-preview-line-in ${selectedLines.has(i)
-        ? 'bg-primary/15 border border-primary/40 ring-1 ring-primary/20'
+      className={`flex items-center gap-3 sm:gap-4 px-4 py-3 sm:px-3 sm:py-2 rounded-xl sm:rounded-lg transition-colors duration-300 ease-out cursor-pointer group relative overflow-hidden animate-preview-line-in ${selectedLines.has(i)
+        ? `bg-primary/15 border border-${isModified ? 'warning' : 'primary'}/40 ring-1 ring-${isModified ? 'warning' : 'primary'}/20`
         : isActive
           ? isLocked
-            ? 'bg-primary/10 border border-primary/30'
-            : 'bg-primary/5 border border-primary/20 border-dashed'
+            ? `bg-primary/10 border border-${isModified ? 'warning' : 'primary'}/30`
+            : `bg-primary/5 border border-${isModified ? 'warning' : 'primary'}/20 border-dashed`
           : dragOverIndex === i
             ? 'bg-accent-blue/10 border border-accent-blue/30'
             : upcomingDepth > 0
               ? `bg-primary/${upcomingDepth === 1 ? '5' : upcomingDepth === 2 ? '3' : '2'} border border-primary/${upcomingDepth === 1 ? '15' : '10'} border-dashed`
-              : 'hover:bg-zinc-800/40 border border-transparent'
+              : `hover:bg-zinc-800/40 border border-${isModified ? 'warning/30' : 'transparent'}`
         } ${dragIndex === i ? 'opacity-40' : ''} ${justSynced ? 'ring-2 ring-primary/60 animate-just-synced' : ''}`}
     >
       {/* Lock/unlock indicator */}
       {isActive && (
         <div className={`absolute left-0 inset-y-0 w-1 z-0 rounded-l-xl animate-bar-grow ${isLocked
-            ? 'bg-primary shadow-[0_0_12px_rgba(29,185,84,0.6)] opacity-90'
-            : 'bg-primary/40 opacity-60'
+            ? `${isModified ? 'bg-warning shadow-[0_0_12px_rgba(245,158,11,0.6)]' : 'bg-primary shadow-[0_0_12px_rgba(29,185,84,0.6)]'} opacity-90`
+            : `${isModified ? 'bg-warning/60' : 'bg-primary/40'} opacity-60`
           }`} />
       )}
       {/* Drag Handle & Line number */}
       <div className="flex items-center gap-1 shrink-0">
         <div
-          className="cursor-grab active:cursor-grabbing text-zinc-700 hover:text-zinc-500 transition-colors p-0.5 -ml-1 select-none"
+          className="cursor-grab active:cursor-grabbing text-zinc-800 hover:text-zinc-500 transition-colors p-0.5 -ml-1 select-none"
           title={t('editor.dragToReorder', 'Drag to reorder')}
         >
           <GripVertical className="w-3 h-3" />
@@ -394,13 +429,17 @@ const EditorLineItem = React.memo(({
                 className="w-3.5 h-3.5 border-zinc-600 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
               />
             ) : (
-              <span className="text-[10px] font-mono tabular-nums text-zinc-600 select-none text-right">
+              <span className="text-[10px] font-mono tabular-nums text-zinc-700/70 select-none text-right">
                 {i + 1}
               </span>
             )}
           </div>
         )}
+        {isModified && !isActive && (
+          <div className="absolute left-1 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)] animate-in fade-in zoom-in duration-300" />
+        )}
       </div>
+
       <span
         className={`text-xs font-mono tabular-nums shrink-0 transition-colors ${editorMode === 'words' ? 'self-start pt-0.5' : ''} ${isSynced
           ? 'text-primary'
@@ -408,7 +447,7 @@ const EditorLineItem = React.memo(({
             ? 'text-zinc-400 animate-pulse-glow'
             : 'text-zinc-600'
           }`}
-        style={{ width: editorMode === 'words' ? '200px' : '92px', flexShrink: 0 }}
+        style={{ width: editorMode === 'words' ? '240px' : '92px', flexShrink: 0 }}
       >
         {editorMode === 'words' ? (
           <div className="flex flex-col gap-1">
@@ -472,7 +511,7 @@ const EditorLineItem = React.memo(({
                   const readingFmt = settings?.editor?.display?.readingFormat || 'hiragana';
                   const fmtReading = (r) => r ? (readingFmt === 'katakana' ? toKatakana(r) : toHiragana(r)) : r;
                   return (
-                    <div key={wi} className="flex flex-col items-center gap-0">
+                    <div key={wi} className="flex flex-col items-center gap-1">
                       {/* Furigana reading row — only for kanji */}
                       {canHaveReading && (isEditingReading ? (
                         <ReadingInput
@@ -487,11 +526,11 @@ const EditorLineItem = React.memo(({
                         <Tip content={w.reading ? t('editor.wordReadingEdit', { reading: fmtReading(w.reading) }) : t('editor.wordReadingAdd')}>
                           <span
                             onClick={(e) => { e.stopPropagation(); setEditingReadingWordIndex(wi); }}
-                            className={`text-[9px] font-mono leading-none cursor-pointer select-none border-b transition-colors ${w.reading
+                            className={`text-[9px] font-mono leading-none cursor-pointer select-none border-b-2 transition-all duration-200 min-h-[12px] flex items-center justify-center ${w.reading
                                 ? 'text-zinc-400 border-zinc-600/60 hover:text-primary hover:border-primary/50'
-                                : 'text-transparent border-transparent hover:text-zinc-600 hover:border-zinc-700'
+                                : 'text-zinc-700/50 border-zinc-700/50 border-dashed hover:text-zinc-500 hover:border-zinc-600'
                               }`}
-                            style={{ width: `${Math.max(24, (w.reading?.length || 1) * 8, displayWord.length * 11)}px`, textAlign: 'center', display: 'block' }}
+                            style={{ width: `${Math.max(24, (w.reading?.length || 1) * 8, displayWord.length * 11)}px`, textAlign: 'center' }}
                           >
                             {fmtReading(w.reading) || '　'}
                           </span>
@@ -516,25 +555,47 @@ const EditorLineItem = React.memo(({
                               {displayWord}
                             </StampedWordChip>
                           </Tip>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); handleClearWordTimestamp(i, wi); }}
-                              className="opacity-0 group-hover/word:opacity-100 text-zinc-600 hover:text-red-400 transition-all p-0.5 -ml-0.5"
-                            >
-                              <X className="w-2.5 h-2.5" />
-                            </button>
+                            {!isMobile && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleClearWordTimestamp(i, wi); }}
+                                className="opacity-0 group-hover/word:opacity-100 text-zinc-600 hover:text-red-400 transition-all p-0.5 -ml-0.5"
+                              >
+                                <X className="w-2.5 h-2.5" />
+                              </button>
+                            )}
+                            {isMobile && isFocusedWord && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); onWordMenu?.(i, wi, w, false); }}
+                                className="text-primary-dim bg-primary/10 rounded-full p-1 -ml-1 animate-in fade-in zoom-in-50 duration-200"
+                              >
+                                <MoreHorizontal className="w-3 h-3" />
+                              </button>
+                            )}
                         </div>
                       ) : (
-                        <span
-                          onDoubleClick={(e) => { e.stopPropagation(); if (canHaveReading) setEditingReadingWordIndex(wi); }}
-                          onClick={(e) => handleWordClick(e, w, wi)}
-                          className={`text-[11px] px-2.5 py-0.5 rounded-full border leading-none transition-all cursor-pointer ${isActiveWord || isFocusedWord
-                              ? 'bg-primary text-zinc-950 border-primary ring-2 ring-primary/40 shadow-[0_0_12px_rgba(var(--primary-rgb),0.5)] animate-pulse-glow'
-                              : 'bg-zinc-800/50 border-zinc-700/30 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-400'
-                            }`}
-                        >
-                          {displayWord}
-                        </span>
+                        <div className="flex items-center gap-0.5">
+                          <span
+                            onDoubleClick={(e) => { e.stopPropagation(); if (canHaveReading) setEditingReadingWordIndex(wi); }}
+                            onClick={(e) => handleWordClick(e, w, wi)}
+                            className={`text-[11px] px-2.5 py-0.5 rounded-full border leading-none transition-all cursor-pointer ${isActiveWord || isFocusedWord
+                                ? 'bg-primary text-zinc-950 border-primary ring-2 ring-primary/40 shadow-[0_0_12px_rgba(var(--primary-rgb),0.5)] animate-pulse-glow'
+                                : 'bg-zinc-800/50 border-zinc-700/30 text-zinc-600 hover:bg-zinc-800 hover:text-zinc-400'
+                              }`}
+                          >
+                            {displayWord}
+                          </span>
+                          {isMobile && isFocusedWord && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); onWordMenu?.(i, wi, w, false); }}
+                              className="text-primary-dim bg-primary/10 rounded-full p-1 -ml-1 animate-in fade-in zoom-in-50 duration-200"
+                            >
+                              <MoreHorizontal className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   );
@@ -568,25 +629,47 @@ const EditorLineItem = React.memo(({
                           {w.word}
                         </StampedWordChip>
                       </Tip>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleClearWordTimestamp(i, wi, 'secondaryWords'); }}
-                          className="opacity-0 group-hover/sword:opacity-100 text-zinc-600 hover:text-red-400 transition-all p-0.5 -ml-0.5"
-                        >
-                          <X className="w-2.5 h-2.5" />
-                        </button>
+                        {!isMobile && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleClearWordTimestamp(i, wi, 'secondaryWords'); }}
+                            className="opacity-0 group-hover/sword:opacity-100 text-zinc-600 hover:text-red-400 transition-all p-0.5 -ml-0.5"
+                          >
+                            <X className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                        {isMobile && isFocusedSecondaryWord && (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onWordMenu?.(i, wi, w, true); }}
+                            className="text-accent-blue bg-accent-blue/10 rounded-full p-1 -ml-1 animate-in fade-in zoom-in-50 duration-200"
+                          >
+                            <MoreHorizontal className="w-3 h-3" />
+                          </button>
+                        )}
                     </div>
                   ) : (
-                    <span
-                      key={wi}
-                      onClick={(e) => handleWordClick(e, w, wi, true)}
-                      className={`text-[11px] px-2.5 py-0.5 rounded-full border leading-none transition-all cursor-pointer ${isActiveSecondaryWord || isFocusedSecondaryWord
-                          ? 'bg-accent-blue text-zinc-900 border-accent-blue ring-2 ring-accent-blue/40 shadow-[0_0_12px_rgba(var(--accent-blue-rgb),0.5)] animate-pulse-glow'
-                          : 'bg-zinc-800/50 border-zinc-700/30 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-400'
-                        }`}
-                    >
-                      {w.word}
-                    </span>
+                    <div className="flex items-center gap-0.5">
+                      <span
+                        key={wi}
+                        onClick={(e) => handleWordClick(e, w, wi, true)}
+                        className={`text-[11px] px-2.5 py-0.5 rounded-full border leading-none transition-all cursor-pointer ${isActiveSecondaryWord || isFocusedSecondaryWord
+                            ? 'bg-accent-blue text-zinc-900 border-accent-blue ring-2 ring-accent-blue/40 shadow-[0_0_12px_rgba(var(--accent-blue-rgb),0.5)] animate-pulse-glow'
+                            : 'bg-zinc-800/50 border-zinc-700/30 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-400'
+                          }`}
+                      >
+                        {w.word}
+                      </span>
+                      {isMobile && isFocusedSecondaryWord && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); onWordMenu?.(i, wi, w, true); }}
+                          className="text-accent-blue bg-accent-blue/10 rounded-full p-1 -ml-1 animate-in fade-in zoom-in-50 duration-200"
+                        >
+                          <MoreHorizontal className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -726,18 +809,18 @@ const EditorLineItem = React.memo(({
             />
           </div>
         ) : (
-          <div className={`flex flex-col gap-0.5 group/text min-w-0 w-full ${editorMode === 'words' ? 'pt-0.5' : ''}`}>
+          <div className={`flex flex-col gap-1 group/text min-w-0 w-full ${editorMode === 'words' ? 'pt-0.5' : ''}`}>
             <div className="flex items-center gap-2">
               <p
-                className={`text-xs transition-all duration-300 ease-out ${editorMode !== 'words' && (line.words?.some(w => w.reading) || editingReadingWordIndex != null || inlineEditCharIdx != null) ? 'overflow-hidden' : 'break-words whitespace-pre-wrap'} ${isActive
+                className={`text-[13px] lg:text-xs transition-all duration-300 ease-out ${editorMode !== 'words' && (line.words?.some(w => w.reading) || editingReadingWordIndex != null || inlineEditCharIdx != null) ? 'overflow-hidden' : 'break-words whitespace-pre-wrap'} ${isActive
                   ? 'text-zinc-100 font-medium'
                   : isSynced
                     ? line.words?.some(w => w.time != null) ? 'text-zinc-300' : 'text-zinc-100'
                     : 'text-zinc-500'
                   }`}
                 style={editorMode !== 'words' && (line.words?.some(w => w.reading) || editingReadingWordIndex != null || inlineEditCharIdx != null)
-                  ? { lineHeight: '2.2' }
-                  : undefined}
+                  ? { lineHeight: '2.4' }
+                  : { lineHeight: '1.6' }}
               >
                 {editorMode === 'words' && line.words?.length > 0
                   ? line.words.map((w, wi) => {
@@ -799,11 +882,49 @@ const EditorLineItem = React.memo(({
                           </React.Fragment>
                         );
                       }
+                      if (canHaveReading) {
+                        const rubyFmt = settings?.editor?.display?.readingFormat || 'hiragana';
+                        const isEditing = editingReadingWordIndex === wi;
+                        if (isEditing) {
+                          return (
+                            <React.Fragment key={wi}>
+                              <ruby>
+                                {w.word}
+                                <rt>
+                                  <ReadingInput
+                                    defaultValue=""
+                                    onCommit={(val) => { handleSetWordReading?.(i, wi, val); setEditingReadingWordIndex(null); }}
+                                    onCancel={() => setEditingReadingWordIndex(null)}
+                                    readingFormat={rubyFmt}
+                                    className="text-[9px] font-mono text-center bg-transparent border-b border-primary outline-none text-primary px-0 py-0.5"
+                                    style={{ width: `${Math.max(24, w.word.length * 10)}px` }}
+                                  />
+                                </rt>
+                              </ruby>
+                              {trailingSpace}
+                            </React.Fragment>
+                          );
+                        }
+                        return (
+                          <React.Fragment key={wi}>
+                            <ruby
+                              onClick={(e) => { e.stopPropagation(); setEditingReadingWordIndex(wi); }}
+                              className="cursor-pointer hover:text-primary transition-all duration-200 group/ruby"
+                            >
+                              {w.word}
+                              <rt className="border-b-2 border-zinc-700/50 border-dashed min-h-[4px] group-hover/ruby:border-primary/40">
+                                {'　'}
+                              </rt>
+                            </ruby>
+                            {trailingSpace}
+                          </React.Fragment>
+                        );
+                      }
                       return (
                         <React.Fragment key={wi}>
                           <span
-                            onClick={(e) => { if (!canHaveReading) return; e.stopPropagation(); setEditingReadingWordIndex(wi); }}
-                            className={canHaveReading ? 'cursor-pointer hover:text-primary/70 transition-colors' : ''}
+                            onClick={(e) => { e.stopPropagation(); setEditingReadingWordIndex(wi); }}
+                            className="cursor-default"
                           >{w.word}</span>
                           {trailingSpace}
                         </React.Fragment>
@@ -838,11 +959,16 @@ const EditorLineItem = React.memo(({
                         );
                       }
                       return (
-                        <span
+                        <ruby
                           key={ci}
                           onClick={(e) => { e.stopPropagation(); setInlineEditCharIdx(ci); }}
-                          className="cursor-pointer hover:text-primary/70 transition-colors"
-                        >{ch}</span>
+                          className="cursor-pointer hover:text-primary transition-all duration-200 group/ruby"
+                        >
+                          {ch}
+                          <rt className="border-b-2 border-zinc-700/50 border-dashed min-h-[4px] group-hover/ruby:border-primary/40">
+                            {'　'}
+                          </rt>
+                        </ruby>
                       );
                     })
                 }
@@ -1002,42 +1128,81 @@ const EditorLineItem = React.memo(({
             </Tip>
           )}
           {selectedLines.size === 0 && (
-            <Popover>
-              <Tip content={t('editor.lineOptions')}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
+            <>
+              {!isMobile ? (
+                <Popover>
+                  <Tip content={t('editor.lineOptions')}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/60"
+                      >
+                        <MoreHorizontal className="w-3 h-3" />
+                      </Button>
+                    </PopoverTrigger>
+                  </Tip>
+                  <PopoverContent
+                    className="min-w-[180px]"
+                    align="end"
                     onClick={(e) => e.stopPropagation()}
-                    className="text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/60"
                   >
-                    <MoreHorizontal className="w-3 h-3" />
-                  </Button>
-                </PopoverTrigger>
-              </Tip>
-              <PopoverContent
-                className="min-w-[160px]"
-                align="end"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {line.timestamp != null && (
-                  <PopoverItem
-                    onClick={() => handleClearLine(i)}
-                    className="hover:bg-orange-500/10 hover:text-orange-400"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    {t('editor.clearTimestamp')}
-                  </PopoverItem>
-                )}
-                <PopoverItem
-                  onClick={() => handleDeleteLine(i)}
-                  className="hover:bg-red-500/10 hover:text-red-400"
+                    <PopoverItem
+                      onClick={() => handleAddLine(i - 1 >= 0 ? i - 1 : i)}
+                      className="hover:bg-sky-500/10 hover:text-sky-400"
+                    >
+                      <ArrowUpToLine className="w-3.5 h-3.5" />
+                      {t('editor.insertLineAbove', 'Insert Above')}
+                    </PopoverItem>
+                    <PopoverItem
+                      onClick={() => handleAddLine(i)}
+                      className="hover:bg-green-500/10 hover:text-green-400"
+                    >
+                      <ArrowDownToLine className="w-3.5 h-3.5" />
+                      {t('editor.insertLineBelow', 'Insert Below')}
+                    </PopoverItem>
+                    <PopoverItem
+                      onClick={() => {
+                        // Duplicate: insert a copy of this line after it
+                        if (handleAddLine) {
+                          handleAddLine(i, { ...line, id: crypto.randomUUID() });
+                        }
+                      }}
+                      className="hover:bg-zinc-700/60"
+                    >
+                      <CopyPlus className="w-3.5 h-3.5" />
+                      {t('editor.duplicateLine', 'Duplicate')}
+                    </PopoverItem>
+                    {line.timestamp != null && (
+                      <PopoverItem
+                        onClick={() => handleClearLine(i)}
+                        className="hover:bg-orange-500/10 hover:text-orange-400"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        {t('editor.clearTimestamp')}
+                      </PopoverItem>
+                    )}
+                    <PopoverItem
+                      onClick={() => handleDeleteLine(i)}
+                      className="hover:bg-red-500/10 hover:text-red-400"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      {t('editor.removeLine')}
+                    </PopoverItem>
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={(e) => { e.stopPropagation(); onLineMenu?.(i, line); }}
+                  className="text-zinc-500 active:text-zinc-300"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  {t('editor.removeLine')}
-                </PopoverItem>
-              </PopoverContent>
-            </Popover>
+                  <MoreHorizontal className="w-3 h-3" />
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>

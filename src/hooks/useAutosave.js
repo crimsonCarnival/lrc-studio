@@ -35,9 +35,13 @@ export function useAutosave({
   updateServerSnapshot,
   setActiveProjectId,
   setIsAutosaving,
+  isProjectLoading,
+  onSaveSuccess,
 }) {
   // Keep a ref-snapshot of volatile values to avoid stale closures inside the
-  // setInterval / doAutoSave callback
+  // setInterval / doAutoSave callback.
+  // IMPORTANT: isProjectLoading is stored here so doAutoSave always reads the
+  // live value rather than a value frozen into the useCallback closure.
   const autoSaveRef = useRef(null);
   useEffect(() => {
     autoSaveRef.current = {
@@ -46,6 +50,7 @@ export function useAutosave({
       timeInterval: settings.advanced.autoSave.timeInterval ?? 30,
       buildPayload: buildProjectPayload,
       isSharedProject,
+      isProjectLoading,
     };
   });
 
@@ -55,13 +60,15 @@ export function useAutosave({
 
   const doAutoSave = useCallback(async () => {
     const s = autoSaveRef.current;
-    if (!s || s.pendingProject !== null || !s.enabled) return;
+    // Always read isProjectLoading from the ref-snapshot so we never act on a
+    // stale closure value captured when doAutoSave was last recreated.
+    if (!s || s.pendingProject !== null || !s.enabled || s.isProjectLoading) return;
 
     const payload = s.buildPayload();
     const key = s.isSharedProject ? SHARED_PROJECT_KEY : PROJECT_KEY;
     localStorage.setItem(key, JSON.stringify(payload));
 
-    if (getAccessToken() && activeProjectId && !isSharedProjectRef.current) {
+    if (getAccessToken() && activeProjectIdRef.current && !isSharedProjectRef.current) {
       // Skip saveMedia if we already have an upload ID for this session
       let uploadIdToSave = sessionUploadIdRef.current || null;
 
@@ -119,7 +126,7 @@ export function useAutosave({
 
       if (Object.keys(patchData).length > 0) {
         try {
-          await projects.patch(activeProjectId, patchData);
+          await projects.patch(activeProjectIdRef.current, patchData);
           updateServerSnapshot({
             title,
             metadata,
@@ -128,6 +135,7 @@ export function useAutosave({
             lines: payload.lines || [],
             uploadId: uploadIdToSave ?? undefined,
           });
+          onSaveSuccess?.();
         } catch {
           // silent fail for autosave path
         }
@@ -204,6 +212,7 @@ export function useAutosave({
           try {
             localStorage.setItem(ACTIVE_PROJECT_ID_KEY, projectId);
           } catch { /* ignore */ }
+          onSaveSuccess?.();
         })
         .catch(() => { })
         .finally(() => {
@@ -215,8 +224,12 @@ export function useAutosave({
     changeCountRef.current = 0;
     setIsAutosaving(true);
     setTimeout(() => setIsAutosaving(false), 1200);
+  // NOTE: isProjectLoading is intentionally NOT in this dep array.
+  // It is read via autoSaveRef.current.isProjectLoading (always fresh).
+  // Including it would cause doAutoSave to be recreated on every loading
+  // state change, which triggers the [lines, doAutoSave] effect and
+  // increments changeCountRef — potentially causing premature saves.
   }, [
-    activeProjectId,
     mediaTitle,
     projectMetadata,
     editorMode,
@@ -240,7 +253,9 @@ export function useAutosave({
   useEffect(() => {
     if (isFirstLinesRender.current) { isFirstLinesRender.current = false; return; }
     const s = autoSaveRef.current;
-    if (!s?.enabled) return;
+    // Never count edits while restoring — the setLines calls from restore look
+    // identical to user edits from React's perspective.
+    if (!s?.enabled || s.isProjectLoading) return;
     changeCountRef.current += 1;
     if (changeCountRef.current >= 5) {
       doAutoSave();

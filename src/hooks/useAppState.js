@@ -30,7 +30,13 @@ export function useAppState(user) {
   // ——— Lines state with undo/redo ———
   // editorMode must be declared before useHistory so getCompanion can close over it
   const [editorMode, setEditorModeRaw] = useState('lrc');
-  const [isProjectLoading, setIsProjectLoading] = useState(false);
+  const [isProjectLoading, setIsProjectLoading] = useState(() => {
+    try {
+      return !!localStorage.getItem(ACTIVE_PROJECT_ID_KEY);
+    } catch {
+      return false;
+    }
+  });
 
   const [lines, setLines, undo, redo, canUndo, canRedo] = useHistory([], {
     limit: settings.advanced?.history?.limit || 50,
@@ -79,6 +85,7 @@ export function useAppState(user) {
   });
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [isAutosaving, setIsAutosaving] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [projectYtUrl, setProjectYtUrl] = useState('');
   const [restoredYtUrl, setRestoredYtUrl] = useState('');
@@ -89,14 +96,29 @@ export function useAppState(user) {
     try { return localStorage.getItem(ACTIVE_PROJECT_ID_KEY) || null; } catch { return null; }
   });
   const [cloudinaryAudio, setCloudinaryAudio] = useState(null);
+  const [projectSpotifyTrackId, setProjectSpotifyTrackId] = useState('');
   // Refs for stale-closure-safe reads inside save callbacks and guarded setLines
   const lastServerSnapshotRef = useRef(null);
   // Guard: prevents two concurrent project.create() calls (manual + autosave race)
   const isCreatingProjectRef = useRef(false);
+  // Mirror isProjectLoading in a ref so the beforeunload handler (a non-reactive
+  // closure) can always read the live value without being re-registered every render.
+  // Initialised to match isProjectLoading's lazy initialiser so it's correct
+  // from the very first render (before the sync useEffect can fire).
+  const isProjectLoadingRef = useRef(isProjectLoading);
   // Keep activeProjectId accessible synchronously inside save callbacks (state is async)
-  const activeProjectIdRef = useRef(null);
+  const activeProjectIdRef = useRef(activeProjectId);
   // Cache the persisted upload ID for the current session to avoid repeated saveMedia calls
   const sessionUploadIdRef = useRef(null);
+  // Stable bound wrapper so callers (useAutosave, silent restore) don't need to pass the ref
+  const saveServerSnapshot = useCallback(
+    (data) => updateServerSnapshot(lastServerSnapshotRef, data),
+    [],
+  );
+  // Callback registry: components (e.g. Editor) register teardown / post-save hooks here
+  const afterSaveRef = useRef(null);
+  const registerAfterSave = useCallback((fn) => { afterSaveRef.current = fn; }, []);
+  const callAfterSave = useCallback(() => { afterSaveRef.current?.(); }, []);
 
   const playerRef = useRef(null);
   const langMenuRef = useRef(null);
@@ -110,9 +132,15 @@ export function useAppState(user) {
   const silentRestoreRan = useRef(false);
   useEffect(() => {
     if (silentRestoreRan.current) return;
-    if (!activeProjectId) return;
+    if (!activeProjectId) {
+      setIsProjectLoading(false);
+      return;
+    }
     // If the URL has a shared project hash, skip silent restore
-    if (window.location.hash.startsWith('#s=')) return;
+    if (window.location.hash.startsWith('#s=')) {
+      setIsProjectLoading(false);
+      return;
+    }
     silentRestoreRan.current = true;
 
     // \u2705 FIX: Try loading from server first (source of truth), fall back to localStorage
@@ -193,7 +221,7 @@ export function useAppState(user) {
               tags: project.metadata.tags || [],
             });
           }
-          updateServerSnapshot({
+          saveServerSnapshot({
             title: project.title || '',
             metadata: project.metadata || { description: '', tags: [] },
             state: {
@@ -241,6 +269,8 @@ export function useAppState(user) {
 
   // Keep activeProjectIdRef in sync with state so save callbacks can read it synchronously
   useEffect(() => { activeProjectIdRef.current = activeProjectId; }, [activeProjectId]);
+  // Keep isProjectLoadingRef in sync for the beforeunload guard
+  useEffect(() => { isProjectLoadingRef.current = isProjectLoading; }, [isProjectLoading]);
 
 
 
@@ -272,6 +302,7 @@ export function useAppState(user) {
     duration,
     projectYtUrl,
     cloudinaryAudio,
+    projectSpotifyTrackId,
   });
 
   // Handle Playback Time (s) and Readonly params on mount
@@ -310,7 +341,9 @@ export function useAppState(user) {
     lastServerSnapshotRef,
     playerRef,
     setIsAutosaving,
+    setIsSaving,
     setActiveProjectId,
+    onSaveSuccess: callAfterSave,
   });
 
   // ——— Project CRUD actions ———
@@ -397,9 +430,11 @@ export function useAppState(user) {
     duration,
     buildProjectPayload,
     buildProjectPatch,
-    updateServerSnapshot,
+    updateServerSnapshot: saveServerSnapshot,
     setActiveProjectId,
     setIsAutosaving,
+    isProjectLoading,
+    onSaveSuccess: callAfterSave,
   });
 
   // ——— Global keyboard shortcuts ———
@@ -436,6 +471,70 @@ export function useAppState(user) {
   }, []);
 
 
+
+
+  // ——— Page Exit Guard (Unsaved Changes) ———
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      // Never block exit while the project is still being restored from server —
+      // the snapshot hasn't been written yet so every comparison looks dirty.
+      if (isProjectLoadingRef.current) return;
+
+      // Block exit while a save / create is in-flight so we don't corrupt state.
+      if (isSaving || isCreatingProjectRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+
+      // Build current payload and diff against the last known server snapshot.
+      const payload = buildProjectPayload();
+      const patch = buildProjectPatch({
+        prevSnapshot: lastServerSnapshotRef.current,
+        title: mediaTitle || '',
+        metadata: projectMetadata,
+        state: {
+          syncMode,
+          activeLineIndex,
+          playbackPosition: payload.playbackPosition || 0,
+          playbackSpeed: payload.playbackSpeed || 1,
+          saveTime: payload.saveTime,
+          timezone: payload.timezone,
+          utcOffset: payload.utcOffset,
+        },
+        editorMode,
+        lines: payload.lines || [],
+      });
+
+      // Treat as dirty if:
+      // a) there is a meaningful diff against the snapshot, OR
+      // b) we have lines but no snapshot AND autosave is off (autosave would
+      //    otherwise save the project before the user can navigate away).
+      const noSnapshot = !lastServerSnapshotRef.current && payload.lines?.length > 0;
+      const autoSaveOn = settings.advanced?.autoSave?.enabled;
+      const isDirty =
+        (patch && Object.keys(patch).length > 0) ||
+        (noSnapshot && !autoSaveOn);
+
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [
+    buildProjectPayload,
+    mediaTitle,
+    projectMetadata,
+    syncMode,
+    activeLineIndex,
+    editorMode,
+    isSaving,
+    settings.advanced?.autoSave?.enabled,
+  ]);
 
 
   const handleCloudinaryUpload = useCallback((info) => {
@@ -565,6 +664,7 @@ export function useAppState(user) {
     hasUnsavedChanges,
     confirmModal,
     isAutosaving,
+    isSaving,
     isSharedProject,
     sharedReadOnly,
     setSharedReadOnly,
@@ -574,6 +674,9 @@ export function useAppState(user) {
     loadProject,
     resetAppState,
     handleCloudinaryUpload,
+    setProjectSpotifyTrackId,
     isProjectLoading,
+    setHasMedia,
+    registerAfterSave,
   };
 }

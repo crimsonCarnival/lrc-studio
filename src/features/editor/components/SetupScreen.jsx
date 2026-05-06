@@ -148,7 +148,7 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
     if (playerRef.current?.loadYouTube) {
       playerRef.current.loadYouTube(trimmed);
     }
-    setAudioName(trimmed);
+    setAudioName(t('library.untitled') || 'Untitled');
     setAudioReady(true);
     setAudioSource('youtube');
     setSelectedUpload(null);
@@ -276,7 +276,14 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
           id: crypto.randomUUID(),
         }));
     }
-    onComplete({ lines: finalLines, editorMode });
+    onComplete({
+      lines: finalLines,
+      editorMode,
+      audioSource,
+      ytUrl,
+      audioName: (audioName && !audioName.includes('://')) ? audioName : null,
+      selectedUpload
+    });
   };
 
   return (
@@ -371,7 +378,7 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
                     <div className="flex flex-col gap-2">
                       <button
                         onClick={() => setAudioPanelView('youtube')}
-                        className="flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 hover:border-red-500/40 transition-all group text-left"
+                        className="flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 hover:border-red-500/40 transition-all group text-left cursor-pointer"
                       >
                         <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                           <Video className="w-5 h-5 text-red-500" />
@@ -389,7 +396,7 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
                       {user?.spotify?.spotifyId ? (
                         <button
                           onClick={() => setAudioPanelView('spotify')}
-                          className="flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-green-500/20 bg-green-500/5 hover:bg-green-500/10 hover:border-green-500/40 transition-all group text-left"
+                          className="flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-green-500/20 bg-green-500/5 hover:bg-green-500/10 hover:border-green-500/40 transition-all group text-left cursor-pointer"
                         >
                           <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                             <SpotifyIcon className="w-5 h-5 text-green-500" />
@@ -406,7 +413,7 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
                       ) : (
                         <button
                           onClick={() => onOpenSettings?.('profile')}
-                          className="flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 transition-all group text-left"
+                          className="flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 transition-all group text-left cursor-pointer"
                         >
                           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                             <SpotifyIcon className="w-5 h-5 text-primary" />
@@ -429,7 +436,7 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
                       <button
                         onClick={() => audioInputRef.current?.click()}
                         title={t('setup.uploadAudio')}
-                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-zinc-800 text-zinc-400 hover:text-primary hover:bg-zinc-700/50 transition-all shrink-0 border border-zinc-700/40"
+                        className="w-10 h-10 flex items-center justify-center rounded-xl bg-zinc-800 text-zinc-400 hover:text-primary hover:bg-zinc-700/50 transition-all shrink-0 border border-zinc-700/40 cursor-pointer"
                       >
                         <FolderOpen className="w-4 h-4" />
                         <input

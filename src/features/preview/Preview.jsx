@@ -125,7 +125,7 @@ export default function Preview(props) {
 
   return (
     <>
-      <div className="glass relative rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col flex-1 animate-fade-in min-h-0">
+      <div className="lg:glass relative lg:rounded-2xl rounded-none p-3 sm:p-5 flex flex-col flex-1 animate-fade-in min-h-0">
         {/* Header */}
         <div className="flex items-center justify-between mb-2 sm:mb-4 gap-2 sm:gap-4 relative z-raised">
           <h2 className="text-xs sm:text-sm font-semibold tracking-widest text-zinc-400 flex items-center gap-2 overflow-hidden flex-1 pb-1">

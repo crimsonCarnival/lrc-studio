@@ -3,13 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Music2, UploadCloud, Settings as SettingsIcon, LogOut, BookOpen, Pencil,
-  ShieldAlert, Eye, EyeOff, User,
+  ShieldAlert, Eye, EyeOff, User, HelpCircle,
 } from 'lucide-react';
 import { Button } from '@ui/button';
 import { Input } from '@ui/input';
 import { Popover, PopoverContent, PopoverItem, PopoverTrigger } from '@ui/popover';
 import { Tip } from '@ui/tip';
 import { Kbd } from '@shared/Kbd';
+import { projects, uploads } from '@/api';
 
 /**
  * Full application header: logo/breadcrumb, nav buttons, language/theme/user menus.
@@ -36,6 +37,15 @@ export function AppHeader({
   const navigate = useNavigate();
   const location = useLocation();
   const [editingProjectName, setEditingProjectName] = useState(false);
+  const [counts, setCounts] = useState({ library: 0, uploads: 0 });
+
+  const fetchCounts = async () => {
+    if (!user) return;
+    try {
+      const [pRes, uRes] = await Promise.all([projects.list(), uploads.list()]);
+      setCounts({ library: pRes.projects?.length || 0, uploads: uRes.uploads?.length || 0 });
+    } catch (err) { console.error('Failed to fetch counts for menu:', err); }
+  };
 
   const goHomeOrWarn = () => {
     if (location.pathname.startsWith('/project/') && hasUnsavedChanges()) {
@@ -61,7 +71,7 @@ export function AppHeader({
   const NAV_IDLE = `bg-zinc-800/80 border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700`;
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-[100] animate-fade-in bg-transparent pointer-events-none">
+    <header className="fixed top-0 left-0 right-0 z-nav animate-fade-in bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/50 pointer-events-none">
       <div className="max-w-[1600px] mx-auto w-full px-4 lg:px-6 py-3 sm:py-5 flex flex-row items-center justify-between gap-2 pointer-events-auto">
         {/* ── Logo + breadcrumb ── */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink">
@@ -72,17 +82,17 @@ export function AppHeader({
             <Music2 className="w-4 sm:w-5 h-4 sm:h-5 text-white" strokeWidth={2} />
           </button>
 
-          <div className="overflow-hidden flex items-center gap-2 min-w-0">
+          <div className="flex flex-col lg:flex-row lg:items-center gap-0 lg:gap-2 min-w-0">
             <button
               onClick={goHomeOrWarn}
-              className="text-base sm:text-lg font-bold text-zinc-100 tracking-tight truncate shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+              className="text-sm lg:text-lg font-bold text-zinc-100 tracking-tight truncate cursor-pointer hover:opacity-80 transition-opacity text-left"
             >
               {t('app.name')}
             </button>
 
             {isReady ? (
-              <>
-                <span className="text-zinc-600 shrink-0">/</span>
+              <div className="flex items-center gap-1 lg:gap-2 min-w-0">
+                <span className="text-zinc-600 hidden lg:inline">/</span>
                 {editingProjectName ? (
                   <Input
                     type="text"
@@ -98,24 +108,30 @@ export function AppHeader({
                     }}
                     autoFocus
                     maxLength={200}
-                    className="h-7 text-sm bg-zinc-800/60 border-zinc-700/60 text-zinc-200 min-w-[100px] max-w-[200px]"
+                    className="h-6 lg:h-7 text-xs lg:text-sm bg-zinc-800/60 border-zinc-700/60 text-zinc-200 min-w-[100px] max-w-[200px]"
                   />
                 ) : (
-                  <button onClick={() => setEditingProjectName(true)} className="flex items-center gap-1 min-w-0 group">
-                    <span className="text-sm font-medium text-zinc-400 group-hover:text-zinc-200 truncate transition-colors">
+                  <button 
+                    onClick={() => setEditingProjectName(true)} 
+                    className="flex items-center gap-1.5 min-w-0 group py-1 -my-1"
+                    aria-label={t('setup.projectNamePlaceholder')}
+                  >
+                    <span className="text-xs lg:text-sm font-medium text-zinc-400 group-hover:text-zinc-200 truncate transition-colors">
                       {mediaTitle || t('setup.projectNamePlaceholder')}
                     </span>
-                    <Pencil className="w-3 h-3 text-zinc-600 group-hover:text-zinc-400 transition-colors shrink-0" />
+                    <div className="p-1.5 -m-1.5 lg:p-0 lg:m-0">
+                      <Pencil className="w-3 h-3 lg:w-3.5 lg:h-3.5 text-zinc-600 group-hover:text-zinc-400 transition-colors shrink-0" />
+                    </div>
                   </button>
                 )}
-              </>
+              </div>
             ) : location.pathname !== '/home' && location.pathname !== '/' && (
-              <>
-                <span className="text-zinc-600 shrink-0">/</span>
-                <span className="text-sm font-medium text-zinc-400 truncate capitalize">
+              <div className="flex items-center gap-1 lg:gap-2 min-w-0">
+                <span className="text-zinc-600 hidden lg:inline">/</span>
+                <span className="text-xs lg:text-sm font-medium text-zinc-400 truncate capitalize">
                   {location.pathname.split('/')[1].replace(/-/g, ' ')}
                 </span>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -140,8 +156,21 @@ export function AppHeader({
             </Tip>
           )}
 
+          {/* Keyboard shortcuts button — always visible in header */}
+          <Tip content={`${t('shortcuts.title') || 'Keyboard Shortcuts'} (?)`}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowKeyboardHelp(p => !p)}
+              aria-label={t('shortcuts.title') || 'Keyboard Shortcuts'}
+              className="h-8 w-8 sm:h-9 sm:w-9 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 border border-zinc-700/40 rounded-lg flex-shrink-0 transition-colors"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </Button>
+          </Tip>
+
           {/* Unified User Profile Menu */}
-          <Popover>
+          <Popover onOpenChange={(open) => { if (open) fetchCounts(); }}>
             <PopoverTrigger className="relative z-[110] h-8 w-8 sm:h-9 sm:w-9 rounded-full overflow-hidden bg-zinc-800/80 hover:bg-zinc-700 border-zinc-700/60 flex-shrink-0 transition-all focus:ring-2 focus:ring-primary/50 cursor-pointer outline-none">
               {user?.avatarUrl
                 ? <img src={user.avatarUrl} alt={user?.username || user?.email} className="w-full h-full object-cover" />
@@ -159,11 +188,13 @@ export function AppHeader({
                 <PopoverItem onClick={() => { navigate('/profile'); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-3 sm:py-2">
                   <User className="w-4 h-4 text-zinc-400" />{t('profile.title')}
                 </PopoverItem>
-                <PopoverItem onClick={() => navTo('/library')} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-3 sm:py-2">
-                  <BookOpen className="w-4 h-4 text-zinc-400" />{t('library.title')}
+                <PopoverItem onClick={() => navTo('/library')} className="flex items-center justify-between cursor-pointer font-medium text-sm py-3 sm:py-2">
+                  <span className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-zinc-400" />{t('library.title')}</span>
+                  {counts.library > 0 && <span className="bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full text-[10px] tabular-nums font-bold">{counts.library}</span>}
                 </PopoverItem>
-                <PopoverItem onClick={() => navTo('/uploads')} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-3 sm:py-2">
-                  <UploadCloud className="w-4 h-4 text-zinc-400" />{t('uploads.title')}
+                <PopoverItem onClick={() => navTo('/uploads')} className="flex items-center justify-between cursor-pointer font-medium text-sm py-3 sm:py-2">
+                  <span className="flex items-center gap-2"><UploadCloud className="w-4 h-4 text-zinc-400" />{t('uploads.title')}</span>
+                  {counts.uploads > 0 && <span className="bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full text-[10px] tabular-nums font-bold">{counts.uploads}</span>}
                 </PopoverItem>
               </div>
 

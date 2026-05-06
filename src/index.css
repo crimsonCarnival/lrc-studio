@@ -51,16 +51,16 @@
   --shadow-glow-strong: 0 0 30px rgba(29, 185, 84, 0.35), 0 0 80px rgba(29, 185, 84, 0.15);
 
   /* ── Z-index scale ── */
-  --z-base: 0;
-  --z-raised: 10;
-  --z-player: 40;
-  --z-nav: 50;
-  --z-mobile-overlay: 60;
-  --z-sticky: 100;
-  --z-modal-backdrop: 9990;
-  --z-modal: 9991;
-  --z-popover: 9995;
-  --z-overlay: 9999;
+  --z-index-base: 0;
+  --z-index-raised: 10;
+  --z-index-player: 40;
+  --z-index-nav: 50;
+  --z-index-mobile-overlay: 60;
+  --z-index-sticky: 100;
+  --z-index-modal-backdrop: 9990;
+  --z-index-modal: 9991;
+  --z-index-popover: 9995;
+  --z-index-overlay: 9999;
 
   /* ── Transition durations ── */
   --duration-fast: 100ms;
@@ -951,9 +951,35 @@ audio::-webkit-media-controls-panel {
   [contenteditable] {
     @apply select-text;
   }
+
+  button:not(:disabled),
+  label[for],
+  select {
+    @apply cursor-pointer;
+  }
 }
 
 ::selection {
   background-color: rgba(29, 185, 84, 0.2);
   color: #1DB954;
+}
+
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-4px);
+  }
+
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.2s ease-in-out 0s 2;
 }

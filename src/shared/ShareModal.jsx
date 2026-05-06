@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@ui/button';
 import { Input } from '@ui/input';
-import { Copy, Check, AlertCircle, Clock, Calendar } from 'lucide-react';
+import { Copy, Check, AlertCircle, Clock, Calendar, Cloud } from 'lucide-react';
 import { Tip } from '@ui/tip';
 import { formatTime } from '@/utils/formatTime';
 
@@ -13,6 +13,9 @@ import { formatTime } from '@/utils/formatTime';
 export function SharePanel({ 
   url: baseUrl, 
   ytUrl, 
+  cloudinaryAudio,
+  spotifyTrackId,
+  mediaSource = 'none',
   linesCount, 
   hasSynced, 
   isPublic = true, 
@@ -102,14 +105,24 @@ export function SharePanel({
 
       {/* Badges */}
       <div className="flex flex-wrap gap-2">
-        <div className={`flex items-center gap-2 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition-colors ${ytUrl
+        <div className={`flex items-center gap-2 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition-colors ${mediaSource !== 'none'
             ? 'border-accent-blue/30 bg-accent-blue/5 text-accent-blue'
             : 'border-zinc-800 bg-zinc-900/50 text-zinc-600'
           }`}>
-          <svg className={`w-3 h-3 ${ytUrl ? 'text-red-500' : 'text-zinc-700'}`} viewBox="0 0 24 24" fill="currentColor">
-            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-          </svg>
-          {ytUrl ? t('share.youtubeIncluded', 'YouTube') : t('share.noYoutube', 'No Media')}
+          {mediaSource === 'youtube' ? (
+            <svg className="w-3 h-3 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+            </svg>
+          ) : mediaSource === 'spotify' ? (
+            <svg className="w-3 h-3 text-[#1DB954]" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.49 17.306c-.215.353-.676.465-1.028.249-2.856-1.745-6.452-2.14-10.686-1.173-.404.092-.812-.162-.904-.565-.092-.403.162-.812.565-.904 4.63-1.059 8.608-.606 11.79 1.34.352.215.464.676.249 1.028zm1.467-3.26c-.27.439-.844.582-1.282.311-3.265-2.007-8.243-2.592-12.103-1.42-.494.15-.99-.126-1.14-.62-.15-.494.126-.99.62-1.14 4.412-1.338 9.904-.683 13.614 1.597.44.27.583.844.311 1.282zm.126-3.41c-3.916-2.325-10.374-2.54-14.135-1.398-.6.183-1.236-.16-1.42-.76-.183-.6.16-1.237.76-1.42 4.314-1.31 11.44-1.054 15.962 1.628.54.32.716 1.02.396 1.56-.32.54-1.02.716-1.56.396z" />
+            </svg>
+          ) : mediaSource === 'cloudinary' ? (
+            <Cloud className="w-3 h-3 text-sky-400" />
+          ) : (
+            <AlertCircle className="w-3 h-3 text-zinc-700" />
+          )}
+          {mediaSource === 'youtube' ? t('share.youtubeIncluded', 'YouTube') : (mediaSource === 'spotify' ? t('share.spotifyIncluded', 'Spotify') : (mediaSource === 'cloudinary' ? t('share.mediaIncluded', 'Cloud Audio') : t('share.noMedia', 'No Media')))}
         </div>
 
         <div className={`flex items-center gap-2 text-[10px] font-bold px-2.5 py-1.5 rounded-lg border transition-colors ${hasSynced

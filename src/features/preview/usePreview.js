@@ -41,16 +41,16 @@ export function usePreview({ lines, setLines, playbackPosition, playerRef, durat
   const spacingOption = settings.interface?.spacing || 'normal';
 
   const activeFontSizes = {
-    small: 'text-base sm:text-lg',
-    normal: 'text-lg sm:text-2xl',
-    large: 'text-xl sm:text-3xl',
-    xlarge: 'text-2xl sm:text-4xl'
+    small: 'text-lg sm:text-xl',
+    normal: 'text-2xl sm:text-3xl',
+    large: 'text-3xl sm:text-4xl',
+    xlarge: 'text-4xl sm:text-5xl'
   };
   const inactiveFontSizes = {
-    small: 'text-xs sm:text-sm',
-    normal: 'text-sm sm:text-lg',
-    large: 'text-base sm:text-xl',
-    xlarge: 'text-lg sm:text-2xl'
+    small: 'text-sm sm:text-base',
+    normal: 'text-base sm:text-xl',
+    large: 'text-lg sm:text-2xl',
+    xlarge: 'text-xl sm:text-3xl'
   };
   const activeSecondarySizes = {
     small: 'text-[10px] sm:text-xs',

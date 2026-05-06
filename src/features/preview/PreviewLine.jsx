@@ -53,6 +53,8 @@ export default function PreviewLine({
 
   const translationLayout = settings.editor?.display?.translationLayout || 'side-by-side';
 
+  const hasReadings = showFuriganaInPreview && line.words?.some((w) => w.reading);
+
   const inner = (
     <div
       ref={isActive && !isDualLine ? activeRef : null}
@@ -65,7 +67,7 @@ export default function PreviewLine({
       }}
       className={`group px-2 sm:px-4 py-1 sm:py-2 rounded-lg transition-opacity duration-100 ease-out flex select-none relative overflow-hidden animate-preview-line-in ${hasMedia ? 'cursor-pointer' : 'cursor-default'
         } ${translationLayout === 'side-by-side' && line.translation && showTranslationsInPreview
-          ? 'flex-row items-center gap-3 sm:gap-6'
+          ? 'flex-row items-baseline gap-3 sm:gap-6'
           : 'flex-col'
         } ${settings.interface?.previewAlignment === 'right' ? 'items-end text-right' :
           settings.interface?.previewAlignment === 'center' ? 'items-center text-center' :
@@ -99,7 +101,7 @@ export default function PreviewLine({
             {renderMainTrack({
               line, isActive, isPast, hasWordTimestamps, playbackPosition,
               activeFontSizes, inactiveFontSizes, sizeOption, spacingOption, settings, showFuriganaInPreview,
-              isPlaying, playbackSpeed
+              isPlaying, playbackSpeed, hasReadings
             })}
             {/* Secondary/Romaji Track — below main */}
             {line.secondary && renderSecondaryTrack({
@@ -107,13 +109,18 @@ export default function PreviewLine({
               isPlaying, playbackSpeed
             })}
           </div>
+
+          {/* Vertical Divider — spans full height while allowing baseline alignment for content columns */}
+          <div className="w-px self-stretch bg-zinc-700/40 mx-3 sm:mx-6" />
+
           {/* Right column: translation */}
-          <div className="flex-1 min-w-0 border-l border-zinc-700/40 pl-3 sm:pl-6">
+          <div className="flex-1 min-w-0">
             <p
-              className={`transition-colors duration-100 w-full break-words overflow-wrap-anywhere hyphens-auto ${isActive
+              className={`transition-colors duration-100 w-full font-lyrics break-words overflow-wrap-anywhere hyphens-auto ${isActive
                 ? `${activeFontSizes[sizeOption]} text-zinc-500 font-medium ${spacingOption === 'compact' ? 'my-0' : 'my-0.5 sm:my-1'}`
                 : `${inactiveFontSizes[sizeOption]} text-zinc-600`
                 }`}
+              style={{ lineHeight: hasReadings ? '2' : undefined }}
             >
               {line.translation}
             </p>
@@ -125,7 +132,7 @@ export default function PreviewLine({
           {renderMainTrack({
             line, isActive, isPast, hasWordTimestamps, playbackPosition,
             activeFontSizes, inactiveFontSizes, sizeOption, spacingOption, settings, showFuriganaInPreview,
-            isPlaying, playbackSpeed
+            isPlaying, playbackSpeed, hasReadings
           })}
 
           {/* Secondary/Romaji Track — below main */}
@@ -137,10 +144,11 @@ export default function PreviewLine({
           {/* Translation Track — below secondary */}
           {(line.translation && showTranslationsInPreview) && (
             <p
-              className={`transition-colors duration-100 w-full break-words overflow-wrap-anywhere hyphens-auto ${isActive
+              className={`transition-colors duration-100 w-full font-lyrics break-words overflow-wrap-anywhere hyphens-auto ${isActive
                 ? `${activeFontSizes[sizeOption]} text-zinc-500 font-medium ${spacingOption === 'compact' ? 'my-0' : 'my-0.5 sm:my-1'}`
                 : `${inactiveFontSizes[sizeOption]} text-zinc-600`
                 }`}
+              style={{ lineHeight: hasReadings ? '2' : undefined }}
             >
               {line.translation}
             </p>
@@ -174,19 +182,18 @@ function needsSpaceAfter(currentWord, nextWord) {
 
 // ——— Render main text track with karaoke fill ———
 // Fill effect is ONLY applied when word-level timestamps exist.
-function renderMainTrack({ line, isActive, isPast, hasWordTimestamps, playbackPosition, activeFontSizes, inactiveFontSizes, sizeOption, spacingOption, settings, showFuriganaInPreview = true, isPlaying, playbackSpeed }) {
+function renderMainTrack({ line, isActive, isPast, hasWordTimestamps, playbackPosition, activeFontSizes, inactiveFontSizes, sizeOption, spacingOption, settings, showFuriganaInPreview = true, isPlaying, playbackSpeed, hasReadings }) {
   const fillTrack = settings.editor?.display?.karaokeFillTrack ?? 'main';
   const fillEasing = settings.editor?.display?.karaokeFillEasing ?? 'linear';
   const skipMainFill = isActive && fillTrack === 'secondary';
   const effectiveHasWordTimestamps = hasWordTimestamps && !skipMainFill;
   const highlightMode = settings.editor?.display?.activeHighlight;
   // Active = white (fill effect provides green); past/completed = green; future = dim
-  const activeClass = `${activeFontSizes[sizeOption]} font-bold text-zinc-100 ${highlightMode === 'glow' ? 'glow-line' : ''} ${spacingOption === 'compact' ? 'my-0' : 'my-0.5 sm:my-1'}`;
-  const pastClass = `${inactiveFontSizes[sizeOption]} ${highlightMode === 'dim' ? 'text-zinc-700' : 'text-primary'}`;
-  const futureClass = `${inactiveFontSizes[sizeOption]} ${highlightMode === 'dim' ? 'text-zinc-800' : 'text-zinc-600'}`;
+  const activeClass = `${activeFontSizes[sizeOption]} font-bold font-lyrics text-zinc-100 ${highlightMode === 'glow' ? 'glow-line' : ''} ${spacingOption === 'compact' ? 'my-0' : 'my-0.5 sm:my-1'}`;
+  const pastClass = `${inactiveFontSizes[sizeOption]} font-lyrics ${highlightMode === 'dim' ? 'text-zinc-700' : 'text-primary'}`;
+  const futureClass = `${inactiveFontSizes[sizeOption]} font-lyrics ${highlightMode === 'dim' ? 'text-zinc-800' : 'text-zinc-600'}`;
 
   // Furigana readings come from word.reading; gated by showFuriganaInPreview
-  const hasReadings = showFuriganaInPreview && line.words?.some((w) => w.reading);
   const mainText = line.text || '♪';
   const readingFmt = settings.editor?.display?.readingFormat || 'hiragana';
   const fmtReading = (r) => r ? (readingFmt === 'katakana' ? toKatakana(r) : toHiragana(r)) : r;
@@ -287,7 +294,7 @@ function renderSecondaryTrack({ line, isActive, playbackPosition, activeSecondar
   const doFill = isActive && hasSecondaryStamps && (fillTrack === 'secondary' || fillTrack === 'both');
   // secondary stays dim (inactive style) when fillTrack is 'main' — no active styling applied
   const treatAsActive = isActive && fillTrack !== 'main';
-  const baseClass = `transition-colors duration-100 w-full break-words overflow-wrap-anywhere hyphens-auto ${treatAsActive
+  const baseClass = `transition-colors duration-100 w-full font-lyrics break-words overflow-wrap-anywhere hyphens-auto ${treatAsActive
     ? `${activeSecondarySizes[sizeOption]} text-zinc-400 font-medium`
     : `${inactiveSecondarySizes[sizeOption]} text-zinc-600`
     }`;

@@ -20,5 +20,7 @@ export default {
   "deleteProjectTitle": "Delete Project",
   "deleteUpload": "Remove \"{{title}}\" from your media library? This cannot be undone.",
   "deleteUploadTitle": "Remove Media",
-  "replaceTitle": "Replace Lyrics"
+  "replaceTitle": "Replace Lyrics",
+  "unsavedChangesTitle": "Unsaved Changes",
+  "unsavedChangesMessage": "You have unsaved changes. What would you like to do before leaving?"
 };
