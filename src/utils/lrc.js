@@ -86,6 +86,7 @@ export function parseTimestamp(str) {
  * @returns {string}
  */
 function sanitizeLrcTag(s) {
+  if (typeof s !== 'string') return String(s || '');
   return s.replace(/[[\]]/g, '');
 }
 
@@ -274,6 +275,14 @@ export function compileSRT(lines, duration, includeTranslations = false, lineEnd
   return lineEndings === 'crlf' ? body.replace(/\n/g, '\r\n') : body;
 }
 
+const generateId = () => {
+  try {
+    return (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).slice(2, 11);
+  } catch {
+    return Math.random().toString(36).slice(2, 11);
+  }
+};
+
 /**
  * Parses an LRC or SRT file into an array of line objects.
  * @param {string} content
@@ -307,7 +316,7 @@ export function parseLrcSrtFile(content, filename) {
           const textLines = parts.slice(2);
           const text = textLines.join('\n');
 
-          parsedLines.push({ text, timestamp, endTime, secondary: '', translation: '', id: crypto.randomUUID() });
+          parsedLines.push({ text, timestamp, endTime, secondary: '', translation: '', id: generateId() });
         }
       }
     });
@@ -332,11 +341,11 @@ export function parseLrcSrtFile(content, filename) {
         collectedTs.sort((a, b) => a - b);
 
         const [primary] = collectedTs;
-        const entry = { text, timestamp: primary, id: crypto.randomUUID() };
+        const entry = { text, timestamp: primary, id: generateId() };
         if (words.length > 0) entry.words = words;
         parsedLines.push(entry);
       } else if (remaining !== '' && !/^\[[^\]]*:[^\]]*\]/.test(remaining)) {
-        parsedLines.push({ text: remaining.trim(), timestamp: null, id: crypto.randomUUID() });
+        parsedLines.push({ text: remaining.trim(), timestamp: null, id: generateId() });
       }
     });
   }

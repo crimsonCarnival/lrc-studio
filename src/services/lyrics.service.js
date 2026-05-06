@@ -35,11 +35,9 @@ export const lyricsService = {
         body: JSON.stringify({ lines, includeTranslations, precision, metadata, lineEndings, includeSecondary, wordPrecision }),
       });
     } catch (err) {
-      if (isNetworkError(err)) {
-        const output = localCompileLRC(lines, includeTranslations, precision, metadata, lineEndings, includeSecondary, wordPrecision);
-        return { output, format: 'lrc' };
-      }
-      throw err;
+      // Fallback to local compilation if server fails (e.g. 404, 500, or network error)
+      const output = localCompileLRC(lines, includeTranslations, precision, metadata, lineEndings, includeSecondary, wordPrecision);
+      return { output, format: 'lrc' };
     }
   },
 
@@ -50,11 +48,9 @@ export const lyricsService = {
         body: JSON.stringify({ lines, duration, includeTranslations, lineEndings, srtConfig, includeSecondary }),
       });
     } catch (err) {
-      if (isNetworkError(err)) {
-        const output = localCompileSRT(lines, duration, includeTranslations, lineEndings, srtConfig, includeSecondary);
-        return { output, format: 'srt' };
-      }
-      throw err;
+      // Fallback to local compilation if server fails
+      const output = localCompileSRT(lines, duration, includeTranslations, lineEndings, srtConfig, includeSecondary);
+      return { output, format: 'srt' };
     }
   },
 

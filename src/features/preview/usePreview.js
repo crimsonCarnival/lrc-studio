@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState } from 'react';
+import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '@/contexts/useSettings';
@@ -87,12 +87,12 @@ export function usePreview({ lines, setLines, playbackPosition, playerRef, durat
 
   const currentIndex = useMemo(() => {
     if (editorMode === 'srt' && !playbackPosition && !duration) return -1;
-    
+
     let bestIdx = -1;
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (line.timestamp == null) continue;
-      
+
       if (line.timestamp <= playbackPosition) {
         if (editorMode === 'srt') {
           if (line.endTime != null && playbackPosition >= line.endTime) continue;
@@ -202,8 +202,8 @@ export function usePreview({ lines, setLines, playbackPosition, playerRef, durat
     });
   };
 
-  const handleExport = async () => {
-    const name = exportFilename.trim() || 'lyrics';
+  const handleExport = useCallback(async () => {
+    const name = (exportFilename || 'lyrics').trim();
     const exportLines = applyIncludeFlags(prepareExportLines(lines));
 
     try {
@@ -221,7 +221,9 @@ export function usePreview({ lines, setLines, playbackPosition, playerRef, durat
         downloadLRC(content, `${name}.srt`);
       } else {
         const filteredMetadata = includeMetadata
-          ? Object.fromEntries(Object.entries(metadata).filter(([, v]) => v.trim() !== ''))
+          ? Object.fromEntries(
+            Object.entries(metadata).filter(([, v]) => typeof v === 'string' && v.trim() !== '')
+          )
           : {};
         const result = await lyrics.compileLrc({
           lines: exportLines,
@@ -242,9 +244,12 @@ export function usePreview({ lines, setLines, playbackPosition, playerRef, durat
       console.error('Export failed', err);
       toast.error(t('export.failed') || 'Export failed');
     }
-  };
+  }, [
+    exportFilename, lines, settings, duration, includeTranslations,
+    includeSecondary, includeMetadata, metadata, t, setShowExportPanel
+  ]);
 
-  const handleCopy = async () => {
+  const handleCopy = useCallback(async () => {
     const exportLines = applyIncludeFlags(prepareExportLines(lines));
 
     try {
@@ -261,7 +266,9 @@ export function usePreview({ lines, setLines, playbackPosition, playerRef, durat
         content = result.output;
       } else {
         const filteredMetadata = includeMetadata
-          ? Object.fromEntries(Object.entries(metadata).filter(([, v]) => v.trim() !== ''))
+          ? Object.fromEntries(
+            Object.entries(metadata).filter(([, v]) => typeof v === 'string' && v.trim() !== '')
+          )
           : {};
         const result = await lyrics.compileLrc({
           lines: exportLines,
@@ -282,7 +289,10 @@ export function usePreview({ lines, setLines, playbackPosition, playerRef, durat
       console.error('Failed to copy', err);
       toast.error(t('export.copyFailed') || 'Failed to copy to clipboard');
     }
-  };
+  }, [
+    lines, settings, duration, includeTranslations,
+    includeSecondary, includeMetadata, metadata, t
+  ]);
 
   return {
     t,
