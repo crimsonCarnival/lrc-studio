@@ -13,6 +13,7 @@ import SharedProjectError from './SharedProjectError';
 import { LogIn, UserPlus, Music2, Copy, Check } from 'lucide-react';
 import { useAuthContext } from '@/contexts/useAuthContext';
 import { AppHeader } from '@/app/layout/AppHeader';
+import { usePageTitle } from '@/hooks/usePageTitle';
 
 /**
  * Full-page, unauthenticated shared-project viewer.
@@ -61,6 +62,8 @@ function SharedProjectViewerInner({ projectId }) {
   const [isCloning, setIsCloning] = useState(false);
   const [copied, setCopied] = useState(false);
   const playerRef = useRef(null);
+
+  usePageTitle(mediaTitle);
 
   // ── Load project on mount ──
   useEffect(() => {
@@ -120,7 +123,7 @@ function SharedProjectViewerInner({ projectId }) {
     } else {
       localStorage.setItem('lrc-syncer-redirect', window.location.pathname + window.location.hash);
       const returnUrl = `/share/${projectId}?clone=1`;
-      window.location.href = `/login?redirect=${encodeURIComponent(returnUrl)}`;
+      window.location.href = `/auth?action=signin&redirect=${encodeURIComponent(returnUrl)}`;
     }
   }, [projectId, user]);
 
@@ -239,8 +242,12 @@ function SharedProjectViewerInner({ projectId }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           {/* Callout Box */}
           <div className="flex items-start gap-3 min-w-0 flex-1">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent-purple flex items-center justify-center flex-shrink-0 mt-0.5">
-              <Music2 className="w-4 h-4 text-white" strokeWidth={2} />
+            <div className="w-8 h-8 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <img 
+                src="https://res.cloudinary.com/dzjid2tos/image/upload/v1778106770/lrc-logo_dkumwz.png" 
+                alt="LRC Studio" 
+                className="w-full h-full object-contain"
+              />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-zinc-100 truncate">

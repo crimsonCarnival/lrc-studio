@@ -28,7 +28,7 @@ export async function request(path, options = {}) {
   }
 
   // Always send device identifier
-  headers['X-Device-Id'] = getDeviceId();
+  headers['X-Device-Id'] = await getDeviceId();
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,

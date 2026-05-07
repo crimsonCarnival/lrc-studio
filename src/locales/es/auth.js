@@ -1,4 +1,15 @@
 export default {
+  "loginWelcome": "Bienvenido a <0>LRC Studio</0>",
+  "loginWelcomeBack": "¡Bienvenido de nuevo, <0>{{name}}</0>!",
+  "loginSubtitle": "Ingresa tu usuario o correo para continuar",
+  "enterPassword": "Ingresa tu contraseña",
+  "notYou": "¿No eres tú? Cambiar cuenta",
+  "rememberMe": "Recordarme",
+  "continue": "Continuar",
+  "registerWelcome": "<0>Crea tu cuenta</0>",
+  "registerSubtitle": "Información de Usuario",
+  "optional": "(opcional)",
+  "securePassword": "Contraseña segura",
   "login": "Iniciar sesión",
   "register": "Registrarse",
   "logout": "Cerrar sesión",
@@ -15,7 +26,7 @@ export default {
   "validationError": "Revisa tu información e intenta de nuevo.",
   "tooManyAttempts": "Demasiados intentos. Intenta más tarde.",
   "usernameTaken": "El usuario o correo ya está en uso",
-  "loggedInAs": "Conectado como {{name}}",
+  "loggedInAs": "Sesión iniciada como {{name}}",
   "account": "Cuenta",
   "tagline": "Sincroniza letras con música, a tu manera",
   "validation": {
@@ -30,5 +41,23 @@ export default {
   "registrationBlockedTitle": "Registro Restringido",
   "registrationBlockedMessage": "El registro no está disponible actualmente.",
   "registrationBlockedDetail": "El registro no está disponible actualmente, vuelve a intentarlo más tarde.",
-  "securityNotice": "El registro de cuentas está temporalmente deshabilitado. Disculpa las molestias."
+  "securityNotice": "El registro de cuentas está temporalmente deshabilitado. Disculpa las molestias.",
+  "errors": {
+    "generic": "Algo salió mal. Por favor intenta de nuevo.",
+    "invalid_credentials": "Usuario/correo o contraseña incorrectos. Por favor verifica tus datos e intenta de nuevo.",
+    "identifier_not_found": "No encontramos una cuenta con ese usuario o correo.",
+    "username_not_found": "No encontramos una cuenta con ese nombre de usuario.",
+    "email_not_found": "No encontramos una cuenta con ese correo electrónico.",
+    "ip_banned_login": "Tu red ha sido bloqueada por una infracción de políticas. Contacta soporte si crees que es un error.",
+    "ip_banned_register": "El registro desde esta red no está permitido por infracciones previas.",
+    "ip_linked": "El registro desde esta red está actualmente restringido.",
+    "device_banned": "Tu dispositivo ha sido bloqueado por una infracción previa. Contacta soporte si crees que es un error.",
+    "account_banned": "Tu cuenta ha sido suspendida. Puedes enviar una apelación desde la página de inicio de sesión.",
+    "account_deleted": "Esta cuenta ya no existe.",
+    "register_account_restricted": "El registro falló. Esta cuenta o correo está restringido.",
+    "username_taken": "El nombre de usuario o correo ya está en uso.",
+    "token_expired": "Tu sesión ha expirado. Por favor inicia sesión de nuevo.",
+    "user_not_found": "Cuenta no encontrada.",
+    "appeal_already_pending": "Ya tienes una apelación pendiente. Por favor espera una respuesta."
+  }
 };

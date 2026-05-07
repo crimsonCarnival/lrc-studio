@@ -1,6 +1,6 @@
 export default {
   "welcome": [
-    "Welcome to Syncify, {{name}}!",
+    "Welcome to LRC Studio, {{name}}!",
     "Let's get started, {{name}}!",
     "Time to make some magic, {{name}}!",
     "Good to see you, {{name}}",
@@ -41,5 +41,8 @@ export default {
   "searchResults": "Search Results",
   "recentProjects": "Recent Projects",
   "noResults": "No projects found matching \"{{query}}\"",
-  "noDescription": "No description"
+  "noDescription": "No description",
+  "connectSpotify": "Connect Spotify",
+  "connectSpotifyDesc": "Browse your playlists and library directly",
+  "noResultsFound": "No projects found"
 };

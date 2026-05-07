@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { uploads, getAccessToken } from '@/api';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 
 export default function useLocalAudio({
   audioRef,
@@ -21,6 +22,7 @@ export default function useLocalAudio({
   const [localUrl, setLocalUrl] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const uploadAbortRef = useRef(null);
+  const { executeRecaptcha } = useGoogleReCaptcha();
 
   const handleFileChange = useCallback((e) => {
     const file = e.type === 'change' ? e.target.files?.[0] : e;
@@ -44,8 +46,11 @@ export default function useLocalAudio({
     if (!file.isCloudinary && getAccessToken() && file.size <= 50 * 1024 * 1024) {
       uploadAbortRef.current = false;
       setIsUploading(true);
-      uploads.uploadToCloudinary(file)
-        .then(async (result) => {
+      
+      const performUpload = async () => {
+        try {
+          const recaptchaToken = executeRecaptcha ? await executeRecaptcha('upload_audio') : undefined;
+          const result = await uploads.uploadToCloudinary(file, recaptchaToken);
           if (uploadAbortRef.current) return;
           try {
             // Immediately persist to database before considering it successful
@@ -70,16 +75,16 @@ export default function useLocalAudio({
             console.error('Failed to persist upload to database:', err);
             toast.error(t('upload.persistFailed') || 'Failed to save media to database');
           }
-        })
-        .catch((err) => {
+        } catch (err) {
           if (uploadAbortRef.current) return;
           console.warn('Cloudinary upload failed:', err.message);
-        })
-        .finally(() => {
+        } finally {
           if (!uploadAbortRef.current) setIsUploading(false);
-        });
+        }
+      };
+      performUpload();
     }
-  }, [blobRef, t, setSource, setIsPlaying, setCurrentTime, onTitleChange, onMediaChange, onCloudinaryUpload]);
+  }, [blobRef, t, setSource, setIsPlaying, setCurrentTime, onTitleChange, onMediaChange, onCloudinaryUpload, executeRecaptcha]);
 
   const handleTimeUpdate = useCallback(() => {
     if (audioRef.current) {

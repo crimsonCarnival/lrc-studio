@@ -8,7 +8,7 @@ import NotFoundPage from '@/shared/NotFoundPage';
 
 export default function UploadDetailView({ onBack }) {
   const { id } = useParams();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
   const [media, setMedia] = useState(null);
@@ -78,7 +78,7 @@ export default function UploadDetailView({ onBack }) {
             <div className="flex items-center gap-3 text-xs sm:text-sm text-zinc-500 mt-1.5">
               <span className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5" />
-                {new Date(media.createdAt).toLocaleDateString()}
+                {new Date(media.createdAt).toLocaleDateString(i18n.resolvedLanguage || i18n.language)}
               </span>
               <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700/50">
                 {isYouTube ? <Video className="w-3 h-3 text-red-500" /> : <FileAudio className="w-3 h-3 text-primary" />}
@@ -140,7 +140,7 @@ export default function UploadDetailView({ onBack }) {
                         <h4 className="text-sm font-bold text-zinc-200 truncate group-hover:text-primary transition-colors">{project.title || t('project.untitled', 'Untitled')}</h4>
                         <p className="text-[10px] text-zinc-500 mt-1 flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {new Date(project.updatedAt || project.createdAt).toLocaleDateString()}
+                          {new Date(project.updatedAt || project.createdAt).toLocaleDateString(i18n.resolvedLanguage || i18n.language)}
                         </p>
                       </div>
                     </div>

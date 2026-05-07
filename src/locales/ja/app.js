@@ -1,5 +1,15 @@
 export default {
-  "name": "Syncify",
+  "name": "LRC Studio",
+  "titles": {
+    "home": "ホーム",
+    "newProject": "新規プロジェクト",
+    "library": "ライブラリ",
+    "uploads": "アップロード",
+    "profile": "プロフィール",
+    "auth": "認証",
+    "admin": "管理ダッシュボード",
+    "shared": "共有プロジェクト"
+  },
   "shareProject": "共有",
   "focusMode": {
     "default": "標準",

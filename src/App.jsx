@@ -227,9 +227,5 @@ function AppInner() {
 }
 
 export default function App() {
-  return (
-    <AppProviders>
-      <AppInner />
-    </AppProviders>
-  );
+  return <AppInner />;
 }

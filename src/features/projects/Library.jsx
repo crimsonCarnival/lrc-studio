@@ -18,7 +18,7 @@ function SourceIcon({ source }) {
 }
 
 export default function Library({ onOpenProject, onBack }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { settings } = useSettings();
   const timezone = settings.advanced?.timezone;
   const [items, setItems] = useState([]);
@@ -29,7 +29,7 @@ export default function Library({ onOpenProject, onBack }) {
 
   const fetchProjects = useCallback(async () => {
     try {
-      const { projects: list } = await projects.list();
+      const list = await projects.list() || [];
       setItems(list);
     } catch {
       setItems([]);
@@ -124,7 +124,7 @@ export default function Library({ onOpenProject, onBack }) {
                 <div className="flex items-center gap-3 mt-1">
                   <span className="text-xs text-zinc-500 flex items-center gap-1">
                     <FileText className="w-3 h-3" />
-                    {t('library.lines', { count: project.lineCount })}
+                    {t('library.lines', { count: project.lineCount || 0 })}
                   </span>
                   {project.upload?.duration && (
                     <span className="text-xs text-zinc-500 flex items-center gap-1">
@@ -143,9 +143,9 @@ export default function Library({ onOpenProject, onBack }) {
                 <Tip content={formatInTimezone(project.updatedAt, timezone, {
                   dateStyle: 'full',
                   timeStyle: 'long'
-                })}>
+                }, i18n.resolvedLanguage || i18n.language)}>
                   <span className="text-[10px] text-zinc-600 mt-1 block">
-                    {getRelativeTime(project.updatedAt, t, timezone)}
+                    {getRelativeTime(project.updatedAt, t, timezone, i18n.resolvedLanguage || i18n.language)}
                   </span>
                 </Tip>
               </div>
@@ -193,8 +193,8 @@ export default function Library({ onOpenProject, onBack }) {
               metadata: updatedMetadata
             });
             // Update local state
-            setItems(prev => prev.map(p => 
-              p.projectId === editingProject.projectId 
+            setItems(prev => prev.map(p =>
+              p.projectId === editingProject.projectId
                 ? { ...p, title, metadata: updatedMetadata }
                 : p
             ));

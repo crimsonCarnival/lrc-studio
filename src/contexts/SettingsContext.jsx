@@ -65,7 +65,9 @@ function upgradeLegacySettings(parsed) {
 
   // Interface
   if (parsed.theme !== undefined) migrated.interface.theme = parsed.theme;
-  if (parsed.defaultLanguage !== undefined) migrated.interface.defaultLanguage = parsed.defaultLanguage;
+  if (parsed.defaultLanguage !== undefined) {
+    migrated.interface.defaultLanguage = parsed.defaultLanguage === 'jp' ? 'ja' : parsed.defaultLanguage;
+  }
   if (parsed.fontSize !== undefined) migrated.interface.fontSize = parsed.fontSize;
   if (parsed.spacing !== undefined) migrated.interface.spacing = parsed.spacing;
   if (parsed.previewAlignment !== undefined) migrated.interface.previewAlignment = parsed.previewAlignment;

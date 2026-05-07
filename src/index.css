@@ -10,6 +10,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Autofill Overrides */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px var(--color-zinc-900) inset !important;
+  -webkit-text-fill-color: var(--color-zinc-100) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
 @theme {
   /* ── Fonts ── */
   --font-heading: "Stack Sans Notch", ui-sans-serif, system-ui, sans-serif;
@@ -737,8 +747,6 @@ audio::-webkit-media-controls-panel {
 }
 
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

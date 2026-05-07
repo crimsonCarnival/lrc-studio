@@ -2,7 +2,7 @@ export default {
   "title": "ユーザープロフィール",
   "manageDesc": "アカウント設定と接続サービスの管理",
   "adminBadge": "管理者",
-  "securedBadge": "Syncifyアカウント • 安全な接続",
+  "securedBadge": "LRC Studioアカウント • 安全な接続",
   "memberSince": "メンバー登録",
   "status": "ステータス",
   "verified": "確認済み",

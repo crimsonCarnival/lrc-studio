@@ -2,7 +2,7 @@ export default {
   "title": "User Profile",
   "manageDesc": "Manage your account settings and connected services",
   "adminBadge": "Admin",
-  "securedBadge": "Syncify Account • Secure Connection",
+  "securedBadge": "LRC Studio Account • Secure Connection",
   "memberSince": "Member since",
   "status": "Status",
   "verified": "Verified",

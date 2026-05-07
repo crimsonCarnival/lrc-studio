@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@ui/button';
-import { Input } from '@ui/input';
+import { FloatingInput } from '@ui/floating-input';
 import { Textarea } from '@ui/textarea';
 import { FolderOpen, Music2, FileText, Upload, Check, ArrowRight, Trash2, Video, Cloud, Link2, Search, Loader2 } from 'lucide-react';
 import { lyrics as lyricsApi, uploads as uploadsApi, spotify as spotifyApi, getAccessToken } from '@/api';
@@ -11,12 +11,14 @@ import SpotifyIcon from '@shared/SpotifyIcon';
 import { useAuthContext } from '@/contexts/useAuthContext';
 import YoutubeSearchPanel from '@features/projects/YoutubeSearchPanel';
 import toast from 'react-hot-toast';
+import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 
-const MAX_IMPORT_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_IMPORT_FILE_SIZE = 2 * 1024 * 1024;
 
 export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, onOpenSettings }) {
   const { t } = useTranslation();
   const { user } = useAuthContext();
+  const { login: handleSpotifyLogin } = useSpotifyAuth();
   const audioInputRef = useRef(null);
   const lyricsInputRef = useRef(null);
   const autoLoadPendingRef = useRef(false);
@@ -47,7 +49,7 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
   useEffect(() => {
     if (!getAccessToken()) return;
     uploadsApi.listMedia()
-      .then(({ uploads }) => setMediaUploads(uploads || []))
+      .then((uploads) => setMediaUploads(uploads || []))
       .catch(() => { })
       .finally(() => setMediaLoading(false));
   }, []);
@@ -68,7 +70,7 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
     if (!getAccessToken()) return;
     try {
       await uploadsApi.saveMedia(data);
-      const { uploads } = await uploadsApi.listMedia();
+      const uploads = await uploadsApi.listMedia();
       setMediaUploads(uploads || []);
     } catch { /* ignore */ }
   }, []);
@@ -148,17 +150,15 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
     if (playerRef.current?.loadYouTube) {
       playerRef.current.loadYouTube(trimmed);
     }
-    setAudioName(t('library.untitled') || 'Untitled');
+    
+    // Ensure all state updates are applied for YouTube
+    setAudioName(t('setup.youtubeVideo') || 'YouTube Video');
     setAudioReady(true);
     setAudioSource('youtube');
     setSelectedUpload(null);
+    
     setYtLoading(false);
-
-    saveUploadRecord({
-      source: 'youtube',
-      youtubeUrl: trimmed,
-      fileName: '',
-    });
+    setYtUrl('');
   };
 
   useEffect(() => {
@@ -183,6 +183,13 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
     } else if (upload.source === 'cloudinary' && upload.cloudinaryUrl) {
       if (playerRef.current?.loadFromUrl) {
         playerRef.current.loadFromUrl(upload.cloudinaryUrl, upload.title || upload.fileName);
+      }
+    } else if (upload.source === 'spotify' && (upload.spotifyTrackId || upload.trackId)) {
+      // Prioritize spotifyTrackId which is the real Spotify ID, fallback to trackId
+      // but ensure it's not the MongoDB ID (usually 24 hex chars)
+      const sId = upload.spotifyTrackId || (upload.trackId?.length !== 24 ? upload.trackId : null);
+      if (sId && playerRef.current?.loadSpotify) {
+        playerRef.current.loadSpotify(sId, upload.title || upload.fileName || 'Spotify Track', false);
       }
     }
   };
@@ -224,7 +231,7 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
     if (getAccessToken()) {
       try {
         await spotifyApi.createUpload(`spotify:track:${track.trackId}`);
-        const { uploads } = await uploadsApi.listMedia();
+        const uploads = await uploadsApi.listMedia();
         setMediaUploads(uploads || []);
       } catch (err) {
         console.error('Failed to save Spotify track to uploads:', err);
@@ -292,7 +299,7 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
         {/* Title */}
         <div className="text-center mb-6 sm:mb-8 pt-4">
           <h2 className="text-2xl sm:text-3xl font-extrabold text-zinc-100 tracking-tight">{t('setup.title')}</h2>
-          <p className="text-zinc-500 text-sm mt-1">Configure your project assets to begin</p>
+          <p className="text-zinc-500 text-sm mt-1">{t('setup.subtitle')}</p>
         </div>
 
         {/* Two panels side by side */}
@@ -308,7 +315,7 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
                 ) : (
                   <Music2 className="w-4 h-4 text-primary" />
                 )}
-                {audioPanelView === 'youtube' ? 'YouTube Search' : audioPanelView === 'spotify' ? 'Spotify Browser' : t('setup.uploadAudio')}
+                {audioPanelView === 'youtube' ? t('setup.youtubeSearch') : audioPanelView === 'spotify' ? t('setup.spotifyBrowser') : t('setup.uploadAudio')}
               </div>
               {audioPanelView !== 'default' && (
                 <button
@@ -385,10 +392,10 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
                         </div>
                         <div className="flex flex-col">
                           <span className="text-base font-bold text-red-400 group-hover:text-red-300 transition-colors">
-                            Search YouTube
+                            {t('setup.searchYoutube')}
                           </span>
                           <span className="text-xs text-zinc-500 leading-tight">
-                            Find any video or song on YouTube to use as audio
+                            {t('setup.searchYoutubeDesc')}
                           </span>
                         </div>
                       </button>
@@ -403,16 +410,16 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
                           </div>
                           <div className="flex flex-col">
                             <span className="text-base font-bold text-green-400 group-hover:text-green-300 transition-colors">
-                              Search Spotify
+                              {t('setup.searchSpotify')}
                             </span>
                             <span className="text-xs text-zinc-500 leading-tight">
-                              Access your playlists and library directly
+                              {t('setup.searchSpotifyDesc')}
                             </span>
                           </div>
                         </button>
                       ) : (
                         <button
-                          onClick={() => onOpenSettings?.('profile')}
+                          onClick={handleSpotifyLogin}
                           className="flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 transition-all group text-left cursor-pointer"
                         >
                           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
@@ -450,15 +457,16 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
                       </button>
 
                       <div className="relative flex-1 flex items-center">
-                        <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
-                        <Input
+                        <FloatingInput
                           type="text"
+                          label={t('setup.urlPlaceholder') || "YouTube or Audio URL"}
+                          hasIcon={true}
                           value={ytUrl}
                           onChange={(e) => setYtUrl(e.target.value)}
                           onKeyDown={handleYtKeyDown}
-                          placeholder="Paste YouTube or CDN URL..."
-                          className="pl-10 bg-transparent border-none text-sm h-10 focus-visible:ring-0 placeholder:text-zinc-600"
+                          className="pl-12 bg-transparent border-none text-sm h-10 focus-visible:ring-0"
                         />
+                        <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 pointer-events-none" />
                       </div>
 
                       <Button
@@ -472,11 +480,11 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
                     </div>
 
                     {/* Latest uploads */}
-                    {!mediaLoading && mediaUploads.length > 0 && (
+                    {(mediaLoading || mediaUploads.length > 0) && (
                       <div className="flex flex-col gap-2 mt-1">
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">{t('setup.yourMedia')}</span>
-                          {mediaUploads.length > 2 && onShowAllUploads && (
+                          {!mediaLoading && mediaUploads.length > 2 && onShowAllUploads && (
                             <button
                               onClick={onShowAllUploads}
                               className="text-[10px] font-medium text-primary hover:text-primary/80 transition-colors uppercase tracking-wider"
@@ -486,37 +494,44 @@ export default function SetupScreen({ onComplete, playerRef, onShowAllUploads, o
                           )}
                         </div>
                         <div className="flex flex-col gap-1">
-                          {mediaUploads.slice(0, 2).map((upload) => (
-                            <div
-                              key={upload.id}
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => handleSelectUpload(upload)}
-                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelectUpload(upload); } }}
-                              className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg border border-zinc-700/40 hover:border-primary/40 hover:bg-zinc-800/60 transition-all group text-left w-full cursor-pointer"
-                            >
-                              <div className="w-7 h-7 rounded-md bg-zinc-800 border border-zinc-700/60 flex items-center justify-center shrink-0 group-hover:border-primary/40 transition-colors overflow-hidden">
-                                {upload.source === 'youtube' ? (
-                                  <Video className="w-3.5 h-3.5 text-red-400" />
-                                ) : upload.source === 'spotify' ? (
-                                  <SpotifyIcon className="w-3.5 h-3.5 text-green-400" />
-                                ) : (
-                                  <Cloud className="w-3.5 h-3.5 text-zinc-400 group-hover:text-primary transition-colors" />
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-zinc-300 group-hover:text-zinc-100 truncate transition-colors">
-                                  {upload.title || upload.fileName || upload.youtubeUrl || 'Untitled'}
-                                </p>
-                              </div>
-                              <button
-                                onClick={(e) => handleDeleteUpload(e, upload.id)}
-                                className="p-1 rounded opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-all shrink-0"
+                          {mediaLoading ? (
+                            <>
+                              <SkeletonMediaItem />
+                              <SkeletonMediaItem />
+                            </>
+                          ) : (
+                            mediaUploads.slice(0, 2).map((upload) => (
+                              <div
+                                key={upload.id}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => handleSelectUpload(upload)}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelectUpload(upload); } }}
+                                className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg border border-zinc-700/40 hover:border-primary/40 hover:bg-zinc-800/60 transition-all group text-left w-full cursor-pointer"
                               >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ))}
+                                <div className="w-7 h-7 rounded-md bg-zinc-800 border border-zinc-700/60 flex items-center justify-center shrink-0 group-hover:border-primary/40 transition-colors overflow-hidden">
+                                  {upload.source === 'youtube' ? (
+                                    <Video className="w-3.5 h-3.5 text-red-400" />
+                                  ) : upload.source === 'spotify' ? (
+                                    <SpotifyIcon className="w-3.5 h-3.5 text-green-400" />
+                                  ) : (
+                                    <Cloud className="w-3.5 h-3.5 text-zinc-400 group-hover:text-primary transition-colors" />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium text-zinc-300 group-hover:text-zinc-100 truncate transition-colors">
+                                    {upload.title || upload.fileName || upload.youtubeUrl || 'Untitled'}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={(e) => handleDeleteUpload(e, upload.id)}
+                                  className="p-1 rounded opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-all shrink-0"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))
+                          )}
                         </div>
                       </div>
                     )}

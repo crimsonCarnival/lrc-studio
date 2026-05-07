@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthContext } from '@/contexts/useAuthContext';
-import { projects } from '@/api';
+import { projects, spotify as spotifyApi } from '@/api';
 import { Music2, Video, Plus, Search, Play, FileText, ChevronRight, Activity, Lightbulb } from 'lucide-react';
+import SpotifyIcon from '@shared/SpotifyIcon';
 import ProjectSetupModal from '@features/editor/components/ProjectSetupModal';
 import YoutubeSearchPanel from './YoutubeSearchPanel';
+import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 
 function YtIcon({ className }) {
   return (
@@ -15,7 +17,7 @@ function YtIcon({ className }) {
   );
 }
 
-function formatRelativeTime(dateStr, t) {
+function formatRelativeTime(dateStr, t, locale = 'en') {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return t('library.justNow') || 'Just now';
@@ -24,13 +26,14 @@ function formatRelativeTime(dateStr, t) {
   if (hours < 24) return t('library.hoursAgo', { count: hours }) || `${hours}h ago`;
   const days = Math.floor(hours / 24);
   if (days < 30) return t('library.daysAgo', { count: days }) || `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString();
+  return new Date(dateStr).toLocaleDateString(locale);
 }
 
 export default function Home() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthContext();
+  const { login: handleSpotifyLogin } = useSpotifyAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,7 +60,7 @@ export default function Home() {
 
   const fetchProjects = useCallback(async () => {
     try {
-      const { projects: list } = await projects.list();
+      const list = await projects.list() || [];
       setItems(list || []);
     } catch (err) {
       console.error('Failed to fetch projects', err);
@@ -87,32 +90,49 @@ export default function Home() {
   };
 
   const renderActionCards = () => (
-    <div className="flex flex-col gap-4 w-full max-w-md animate-fade-in">
-      <div
-        onClick={() => navigate('/project/new')}
-        className="group cursor-pointer glass rounded-2xl p-5 text-left hover:border-primary/50 transition-all shadow-elevated w-full flex items-center gap-5"
-      >
-        <div className="w-12 h-12 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-          <Plus className="w-6 h-6 text-primary" />
+    <div className="flex flex-row gap-4 w-full max-w-2xl animate-fade-in">
+      <div className="flex flex-col gap-4 flex-1">
+        <div
+          onClick={() => navigate('/project/new')}
+          className="group cursor-pointer glass rounded-2xl p-5 text-left hover:border-primary/50 transition-all shadow-elevated flex items-center gap-5"
+        >
+          <div className="w-12 h-12 shrink-0 rounded-xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Plus className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-zinc-100 mb-0.5">{t('home.createNew')}</h3>
+            <p className="text-sm text-zinc-500 leading-snug">{t('home.createNewDesc')}</p>
+          </div>
         </div>
-        <div>
-          <h3 className="text-lg font-bold text-zinc-100 mb-0.5">{t('home.createNew')}</h3>
-          <p className="text-sm text-zinc-500 leading-snug">{t('home.createNewDesc')}</p>
+
+        <div
+          onClick={() => setShowYtSearch(true)}
+          className="group cursor-pointer glass rounded-2xl p-5 text-left hover:border-red-500/40 transition-all shadow-elevated flex items-center gap-5"
+        >
+          <div className="w-12 h-12 shrink-0 rounded-xl bg-red-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <YtIcon className="w-6 h-6 text-red-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-zinc-100 mb-0.5">{t('home.searchYoutube')}</h3>
+            <p className="text-sm text-zinc-500 leading-snug">{t('home.searchYoutubePlaceholder')}</p>
+          </div>
         </div>
       </div>
 
-      <div
-        onClick={() => setShowYtSearch(true)}
-        className="group cursor-pointer glass rounded-2xl p-5 text-left hover:border-red-500/40 transition-all shadow-elevated w-full flex items-center gap-5"
-      >
-        <div className="w-12 h-12 shrink-0 rounded-xl bg-red-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-          <YtIcon className="w-6 h-6 text-red-400" />
+      {!user?.spotify?.spotifyId && (
+        <div
+          onClick={handleSpotifyLogin}
+          className="group cursor-pointer glass rounded-2xl p-5 text-center hover:border-green-500/40 transition-all shadow-elevated w-48 flex flex-col items-center justify-center gap-3 shrink-0"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform mb-2">
+            <SpotifyIcon className="w-10 h-10 text-green-500" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-zinc-100 mb-1">{t('home.connectSpotify')}</h3>
+            <p className="text-xs text-zinc-500 leading-tight px-2">{t('home.connectSpotifyDesc')}</p>
+          </div>
         </div>
-        <div>
-          <h3 className="text-lg font-bold text-zinc-100 mb-0.5">{t('home.searchYoutube')}</h3>
-          <p className="text-sm text-zinc-500 leading-snug">{t('home.searchYoutubePlaceholder')}</p>
-        </div>
-      </div>
+      )}
     </div>
   );
 
@@ -172,7 +192,7 @@ export default function Home() {
                       <h3 className="text-sm font-bold text-zinc-100 truncate group-hover:text-primary transition-colors">
                         {lastProject.title || t('library.untitled') || 'Untitled'}
                       </h3>
-                      <p className="text-[10px] text-zinc-500 mt-0.5">{formatRelativeTime(lastProject.updatedAt, t)}</p>
+                      <p className="text-[10px] text-zinc-500 mt-0.5">{formatRelativeTime(lastProject.updatedAt, t, i18n.resolvedLanguage || i18n.language)}</p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
                   </div>
@@ -193,7 +213,7 @@ export default function Home() {
           </div>
  
           {/* RIGHT COLUMN: Project Sidebar */}
-          <div className="w-full lg:w-[360px] flex flex-col gap-6 bg-zinc-900/20 glass-dark rounded-3xl p-6 h-[400px] lg:h-full overflow-hidden animate-slide-in-right">
+          <div className="w-full lg:w-[360px] flex flex-col gap-6 glass border border-white/10 shadow-elevated rounded-2xl p-6 h-[400px] lg:h-full overflow-hidden animate-slide-in-right">
             <div className="flex items-center justify-between shrink-0">
               <h2 className="text-sm font-bold text-zinc-100 uppercase tracking-widest">{t('home.recentProjects')}</h2>
               {!loading && items.length > 0 && (
@@ -232,7 +252,7 @@ export default function Home() {
                 <div className="flex-1 overflow-y-auto scrollbar-thin pr-1 flex flex-col gap-2.5 min-h-0">
 
                   {filteredProjects.length === 0 ? (
-                    <p className="text-xs text-zinc-600 text-center py-10">No results found</p>
+                    <p className="text-xs text-zinc-600 text-center py-10">{t('home.noResultsFound') || 'No results found'}</p>
                   ) : (
                     filteredProjects.map((project) => (
                       <div
@@ -253,11 +273,11 @@ export default function Home() {
                             {project.title || t('library.untitled')}
                           </h3>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] text-zinc-500">{formatRelativeTime(project.updatedAt, t)}</span>
+                            <span className="text-[10px] text-zinc-500">{formatRelativeTime(project.updatedAt, t, i18n.resolvedLanguage || i18n.language)}</span>
                             <span className="w-0.5 h-0.5 rounded-full bg-zinc-700" />
                             <span className="text-[10px] text-zinc-500 flex items-center gap-1">
                               <Activity className="w-2.5 h-2.5" />
-                              {project.syncedLineCount || 0}/{project.lineCount || 0}
+                              {(project.syncedLineCount || 0)}/{(project.lineCount || 0)}
                             </span>
                           </div>
                         </div>

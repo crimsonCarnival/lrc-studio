@@ -5,6 +5,7 @@ import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { SkeletonList, SkeletonEditor, SkeletonPreview, SkeletonSetup } from '@ui/skeleton';
 import { Loader2, GripVertical } from 'lucide-react';
 import { Reorder } from 'framer-motion';
+import { usePageTitle } from '@/hooks/usePageTitle';
 
 const Editor = lazy(() => import('@features/editor/components/Editor'));
 const Preview = lazy(() => import('@features/preview/Preview'));
@@ -76,6 +77,8 @@ export function AppRouter({
     setShowSettings,
     setShowKeyboardHelp,
   } = appState;
+
+  usePageTitle(mediaTitle);
 
   const { editorColClass, previewColClass, showEditor, showPreview, mobileTab, layoutSwap, setLayoutSwap, editorWidth, setEditorWidth, lockLayout, focusMode } = layoutState;
   const [draggingItem, setDraggingItem] = useState(null);

@@ -15,7 +15,8 @@ import ErrorBoundary from '@shared/ErrorBoundary.jsx'
 import { AuthProvider } from './contexts/AuthContext.jsx'
 import { useAuthContext } from './contexts/useAuthContext.js'
 import { Spinner } from '@ui/skeleton'
-
+import { AppProviders } from './app/AppProviders';
+import { GoogleReCaptchaProvider } from 'react-google-recaptcha-v3';
 
 // eslint-disable-next-line react-refresh/only-export-components
 const AuthPage = lazy(() => import('@features/auth/AuthPage.jsx'));
@@ -44,7 +45,7 @@ function ProtectedRoute({ children }) {
   }
 
   if (!user) {
-    return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+    return <Navigate to={`/auth?action=signin&redirect=${encodeURIComponent(location.pathname + location.search)}`} replace />;
   }
 
   return children;
@@ -80,9 +81,12 @@ function RootRoutes() {
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="/share/:id" element={<SharedProjectRoute />} />
         
+        {/* Legacy redirects */}
+        <Route path="/login" element={<Navigate to="/auth?action=signin" replace />} />
+        <Route path="/register" element={<Navigate to="/auth?action=signup" replace />} />
+
         {/* Auth routes */}
-        <Route path="/login" element={user ? <AuthRedirect /> : <AuthPage tab="login" />} />
-        <Route path="/register" element={user ? <AuthRedirect /> : <AuthPage tab="register" />} />
+        <Route path="/auth" element={user ? <AuthRedirect /> : <AuthPage />} />
         
         {/* Protected app routes - App handles nested routing inside itself */}
         <Route path="/*" element={
@@ -98,11 +102,15 @@ function RootRoutes() {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
-      <AuthProvider>
-        <BrowserRouter>
-          <RootRoutes />
-        </BrowserRouter>
-      </AuthProvider>
+      <GoogleReCaptchaProvider reCaptchaKey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}>
+        <AuthProvider>
+          <AppProviders>
+            <BrowserRouter>
+              <RootRoutes />
+            </BrowserRouter>
+          </AppProviders>
+        </AuthProvider>
+      </GoogleReCaptchaProvider>
       <Toaster
         position="bottom-center"
         toastOptions={{

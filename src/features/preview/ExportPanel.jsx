@@ -5,6 +5,7 @@ import { useAuthContext } from '@/contexts/useAuthContext';
 import { spotify as spotifyApi, getAccessToken } from '@/api';
 import { Button } from '@ui/button';
 import { Input } from '@ui/input';
+import { FloatingInput } from '@ui/floating-input';
 import { Checkbox } from '@ui/checkbox';
 import { Label } from '@ui/label';
 import SpotifyIcon from '@shared/SpotifyIcon';
@@ -58,7 +59,7 @@ export default function ExportPanel({
   const isSpotifyConnected = !!(getAccessToken() && user?.spotify?.spotifyId);
 
   const handleExportToPlaylist = useCallback(async () => {
-    const name = playlistName.trim() || metadata?.ti || exportFilename || 'Lyrics Syncer';
+    const name = playlistName.trim() || metadata?.ti || exportFilename || 'LRC Studio';
     setExportingPlaylist(true);
     try {
       const { id: playlistId } = await spotifyApi.createPlaylist(name);
@@ -84,24 +85,19 @@ export default function ExportPanel({
       {/* Scrollable options */}
       <div className="flex-1 min-h-0 overflow-y-auto space-y-3 p-3 sm:p-4 rounded-xl bg-zinc-900 border border-zinc-700">
         {/* Filename */}
-        <label className="block">
-          <span className="text-xs text-zinc-400 font-medium">
-            {t('export.filename')}
+        <div className="flex items-center gap-1 mt-1">
+          <FloatingInput
+            type="text"
+            label={t('export.filename')}
+            value={exportFilename}
+            onChange={(e) => setExportFilename(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleExport()}
+            className="flex-1 bg-zinc-900 border-zinc-700 text-zinc-100 placeholder-zinc-500 focus-visible:ring-primary/25 focus-visible:border-primary/50 w-0"
+          />
+          <span className="text-sm text-zinc-500 min-w-8">
+            .{settings.export?.downloadFormat}
           </span>
-          <div className="flex items-center gap-1 mt-1">
-            <Input
-              type="text"
-              value={exportFilename}
-              onChange={(e) => setExportFilename(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleExport()}
-              placeholder="lyrics"
-              className="flex-1 bg-zinc-900 border-zinc-700 text-zinc-100 placeholder-zinc-500 focus-visible:ring-primary/25 focus-visible:border-primary/50 w-0"
-            />
-            <span className="text-sm text-zinc-500 min-w-8">
-              .{settings.export?.downloadFormat}
-            </span>
-          </div>
-        </label>
+        </div>
 
         {/* LRC Metadata */}
         {isLrc && (

@@ -1,6 +1,6 @@
 export default {
   "welcome": [
-    "Syncifyへようこそ、{{name}}！",
+    "LRC Studioへようこそ、{{name}}！",
     "始めましょう、{{name}}！",
     "魔法をかけましょう、{{name}}！",
     "お会いできて嬉しいです、{{name}}",

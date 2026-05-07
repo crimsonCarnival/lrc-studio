@@ -480,7 +480,7 @@ const EditorLineItem = React.memo(({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); if (stampTarget !== 'main') handleStampTargetToggle?.(); }}
-                      className={`text-[9px] px-1.5 py-0.5 rounded leading-none font-bold transition-all ${stampTarget === 'main'
+                      className={`inline-flex items-center justify-center text-[9px] px-1.5 py-0.5 rounded leading-none font-bold transition-all ${stampTarget === 'main'
                           ? 'bg-primary text-zinc-900 shadow-sm'
                           : 'text-zinc-600 hover:text-zinc-300'
                         }`}
@@ -490,7 +490,7 @@ const EditorLineItem = React.memo(({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); if (stampTarget !== 'secondary') handleStampTargetToggle?.(); }}
-                      className={`text-[9px] px-1.5 py-0.5 rounded leading-none font-bold transition-all ${stampTarget === 'secondary'
+                      className={`inline-flex items-center justify-center text-[9px] px-1.5 py-0.5 rounded leading-none font-bold transition-all ${stampTarget === 'secondary'
                           ? 'bg-accent-blue text-zinc-900 shadow-sm'
                           : 'text-zinc-600 hover:text-zinc-300'
                         }`}
@@ -561,7 +561,7 @@ const EditorLineItem = React.memo(({
                                 onClick={(e) => { e.stopPropagation(); handleClearWordTimestamp(i, wi); }}
                                 className="opacity-0 group-hover/word:opacity-100 text-zinc-600 hover:text-red-400 transition-all p-0.5 -ml-0.5"
                               >
-                                <X className="w-2.5 h-2.5" />
+                                <X className="size-2.5" />
                               </button>
                             )}
                             {isMobile && isFocusedWord && (
@@ -570,7 +570,7 @@ const EditorLineItem = React.memo(({
                                 onClick={(e) => { e.stopPropagation(); onWordMenu?.(i, wi, w, false); }}
                                 className="text-primary-dim bg-primary/10 rounded-full p-1 -ml-1 animate-in fade-in zoom-in-50 duration-200"
                               >
-                                <MoreHorizontal className="w-3 h-3" />
+                                <MoreHorizontal className="size-3" />
                               </button>
                             )}
                         </div>
@@ -592,7 +592,7 @@ const EditorLineItem = React.memo(({
                               onClick={(e) => { e.stopPropagation(); onWordMenu?.(i, wi, w, false); }}
                               className="text-primary-dim bg-primary/10 rounded-full p-1 -ml-1 animate-in fade-in zoom-in-50 duration-200"
                             >
-                              <MoreHorizontal className="w-3 h-3" />
+                              <MoreHorizontal className="size-3" />
                             </button>
                           )}
                         </div>
@@ -635,7 +635,7 @@ const EditorLineItem = React.memo(({
                             onClick={(e) => { e.stopPropagation(); handleClearWordTimestamp(i, wi, 'secondaryWords'); }}
                             className="opacity-0 group-hover/sword:opacity-100 text-zinc-600 hover:text-red-400 transition-all p-0.5 -ml-0.5"
                           >
-                            <X className="w-2.5 h-2.5" />
+                            <X className="size-2.5" />
                           </button>
                         )}
                         {isMobile && isFocusedSecondaryWord && (
@@ -644,7 +644,7 @@ const EditorLineItem = React.memo(({
                             onClick={(e) => { e.stopPropagation(); onWordMenu?.(i, wi, w, true); }}
                             className="text-accent-blue bg-accent-blue/10 rounded-full p-1 -ml-1 animate-in fade-in zoom-in-50 duration-200"
                           >
-                            <MoreHorizontal className="w-3 h-3" />
+                            <MoreHorizontal className="size-3" />
                           </button>
                         )}
                     </div>
@@ -666,7 +666,7 @@ const EditorLineItem = React.memo(({
                           onClick={(e) => { e.stopPropagation(); onWordMenu?.(i, wi, w, true); }}
                           className="text-accent-blue bg-accent-blue/10 rounded-full p-1 -ml-1 animate-in fade-in zoom-in-50 duration-200"
                         >
-                          <MoreHorizontal className="w-3 h-3" />
+                          <MoreHorizontal className="size-3" />
                         </button>
                       )}
                     </div>
@@ -1002,15 +1002,16 @@ const EditorLineItem = React.memo(({
               : t('editor.mark')
           }>
             <Button
+              size="icon-sm"
               onClick={(e) => { e.stopPropagation(); handleMark(); }}
-              className={`h-7 w-7 justify-center border font-semibold rounded-lg flex-shrink-0 text-xs shadow-md animate-in fade-in zoom-in-90 duration-200 ${editorMode === 'words' && line.timestamp != null
+              className={`justify-center border font-semibold rounded-lg flex-shrink-0 text-xs shadow-md animate-in fade-in zoom-in-90 duration-200 ${editorMode === 'words' && line.timestamp != null
                   ? stampTarget === 'secondary'
                     ? 'bg-accent-blue/15 hover:bg-accent-blue/25 border-accent-blue/40 text-accent-blue'
                     : 'bg-sky-500/15 hover:bg-sky-500/25 border-sky-500/40 text-sky-400'
                   : 'bg-primary/20 hover:bg-primary/30 border-primary/40 text-primary'
                 }`}
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
@@ -1034,7 +1035,7 @@ const EditorLineItem = React.memo(({
                   }}
                   className="text-zinc-500 hover:bg-primary/20 hover:text-primary"
                 >
-                  <Play className="w-3 h-3" fill="currentColor" />
+                  <Play className="size-3" fill="currentColor" />
                 </Button>
               </Tip>
 
@@ -1054,7 +1055,7 @@ const EditorLineItem = React.memo(({
                       onClick={(e) => { e.stopPropagation(); shiftTime(i, -(settings.editor?.nudge?.default || 0.1)); }}
                       className={`transition-colors ${focusedTimestamp?.lineIndex === i ? 'text-primary hover:text-primary-dim hover:bg-primary/10' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/60'}`}
                     >
-                      <ChevronLeft className="w-3 h-3" />
+                      <ChevronLeft className="size-3" />
                     </Button>
                   </Tip>
                   <Tip content={(() => {
@@ -1071,7 +1072,7 @@ const EditorLineItem = React.memo(({
                       onClick={(e) => { e.stopPropagation(); shiftTime(i, settings.editor?.nudge?.default || 0.1); }}
                       className={`transition-colors ${focusedTimestamp?.lineIndex === i ? 'text-primary hover:text-primary-dim hover:bg-primary/10' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/60'}`}
                     >
-                      <ChevronRight className="w-3 h-3" />
+                      <ChevronRight className="size-3" />
                     </Button>
                   </Tip>
                   <div className="w-px h-4 bg-zinc-700/50 mx-0.5" />
@@ -1082,7 +1083,7 @@ const EditorLineItem = React.memo(({
                       onClick={(e) => { e.stopPropagation(); handleAddLine(i); }}
                       className="text-zinc-500 hover:text-green-400 hover:bg-green-500/10"
                     >
-                      <Plus className="w-3 h-3" />
+                      <Plus className="size-3" />
                     </Button>
                   </Tip>
                   <div className="w-px h-4 bg-zinc-700/50 mx-0.5" />
@@ -1099,7 +1100,7 @@ const EditorLineItem = React.memo(({
                       }}
                       className="text-zinc-500 hover:text-sky-400 hover:bg-sky-500/10"
                     >
-                      <Pencil className="w-3 h-3" />
+                      <Pencil className="size-3" />
                     </Button>
                   </Tip>
                 </>
@@ -1120,7 +1121,7 @@ const EditorLineItem = React.memo(({
                 }}
                 className="text-zinc-500 hover:text-sky-400 hover:bg-sky-500/10"
               >
-                <Pencil className="w-3 h-3" />
+                <Pencil className="size-3" />
               </Button>
             </Tip>
           )}
@@ -1136,7 +1137,7 @@ const EditorLineItem = React.memo(({
                         onClick={(e) => e.stopPropagation()}
                         className="text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/60"
                       >
-                        <MoreHorizontal className="w-3 h-3" />
+                        <MoreHorizontal className="size-3" />
                       </Button>
                     </PopoverTrigger>
                   </Tip>
@@ -1149,14 +1150,14 @@ const EditorLineItem = React.memo(({
                       onClick={() => handleAddLine(i - 1 >= 0 ? i - 1 : i)}
                       className="hover:bg-sky-500/10 hover:text-sky-400"
                     >
-                      <ArrowUpToLine className="w-3.5 h-3.5" />
+                      <ArrowUpToLine className="size-3.5" />
                       {t('editor.insertLineAbove', 'Insert Above')}
                     </PopoverItem>
                     <PopoverItem
                       onClick={() => handleAddLine(i)}
                       className="hover:bg-green-500/10 hover:text-green-400"
                     >
-                      <ArrowDownToLine className="w-3.5 h-3.5" />
+                      <ArrowDownToLine className="size-3.5" />
                       {t('editor.insertLineBelow', 'Insert Below')}
                     </PopoverItem>
                     <PopoverItem
@@ -1168,7 +1169,7 @@ const EditorLineItem = React.memo(({
                       }}
                       className="hover:bg-zinc-700/60"
                     >
-                      <CopyPlus className="w-3.5 h-3.5" />
+                      <CopyPlus className="size-3.5" />
                       {t('editor.duplicateLine', 'Duplicate')}
                     </PopoverItem>
                     {line.timestamp != null && (
@@ -1176,7 +1177,7 @@ const EditorLineItem = React.memo(({
                         onClick={() => handleClearLine(i)}
                         className="hover:bg-orange-500/10 hover:text-orange-400"
                       >
-                        <X className="w-3.5 h-3.5" />
+                        <X className="size-3.5" />
                         {t('editor.clearTimestamp')}
                       </PopoverItem>
                     )}
@@ -1184,7 +1185,7 @@ const EditorLineItem = React.memo(({
                       onClick={() => handleDeleteLine(i)}
                       className="hover:bg-red-500/10 hover:text-red-400"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="size-3.5" />
                       {t('editor.removeLine')}
                     </PopoverItem>
                   </PopoverContent>
@@ -1196,7 +1197,7 @@ const EditorLineItem = React.memo(({
                   onClick={(e) => { e.stopPropagation(); onLineMenu?.(i, line); }}
                   className="text-zinc-500 active:text-zinc-300"
                 >
-                  <MoreHorizontal className="w-3 h-3" />
+                  <MoreHorizontal className="size-3" />
                 </Button>
               )}
             </>

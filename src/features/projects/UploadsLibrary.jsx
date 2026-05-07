@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { uploads as uploadsApi } from '@/api';
 import { formatTime } from '@/utils/formatTime';
+import { formatInTimezone, getRelativeTime } from '@/utils/date';
+import { useSettings } from '@/contexts/useSettings';
 import { Button } from '@ui/button';
 import { Input } from '@ui/input';
 import { Tip } from '@ui/tip';
@@ -11,17 +13,6 @@ import SpotifyIcon from '@shared/SpotifyIcon';
 import toast from 'react-hot-toast';
 import useConfirm from '@/hooks/useConfirm';
 
-function formatRelativeTime(dateStr, t) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return t('library.justNow');
-  if (mins < 60) return t('library.minutesAgo', { count: mins });
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return t('library.hoursAgo', { count: hours });
-  const days = Math.floor(hours / 24);
-  if (days < 30) return t('library.daysAgo', { count: days });
-  return new Date(dateStr).toLocaleDateString();
-}
 
 function SourceIcon({ source }) {
   if (source === 'youtube') return <Video className="w-4 h-4 text-red-400" />;
@@ -37,7 +28,9 @@ function SourceLabel({ source, t }) {
 }
 
 export default function UploadsLibrary({ onSelect, onBack }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { settings } = useSettings();
+  const timezone = settings.advanced?.timezone;
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
@@ -48,7 +41,7 @@ export default function UploadsLibrary({ onSelect, onBack }) {
 
   const fetchUploads = useCallback(async () => {
     try {
-      const { uploads } = await uploadsApi.listMedia();
+      const uploads = await uploadsApi.listMedia();
       setItems(uploads || []);
     } catch {
       setItems([]);
@@ -212,9 +205,12 @@ export default function UploadsLibrary({ onSelect, onBack }) {
                 </div>
 
                 {upload.createdAt && (
-                  <Tip content={new Date(upload.createdAt).toLocaleString()}>
+                  <Tip content={formatInTimezone(upload.createdAt, timezone, {
+                    dateStyle: 'full',
+                    timeStyle: 'long'
+                  }, i18n.resolvedLanguage || i18n.language)}>
                     <span className="text-[10px] text-zinc-600 mt-1 block">
-                      {formatRelativeTime(upload.createdAt, t)}
+                      {getRelativeTime(upload.createdAt, t, timezone, i18n.resolvedLanguage || i18n.language)}
                     </span>
                   </Tip>
                 )}

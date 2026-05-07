@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { projects, uploads, getAccessToken } from '@/api';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import { updateServerSnapshot } from './useManualSave';
 
 const PROJECT_KEY = 'lrc-syncer-project';
@@ -59,12 +60,14 @@ export function useProjectActions({
   toast,
   requestConfirm,
 }) {
+  const { executeRecaptcha } = useGoogleReCaptcha();
   // ── Load a project from the library ──────────────────────────────────────
   const loadProject = useCallback(async (projectId) => {
     setIsProjectLoading(true);
     try {
-      const { project } = await projects.get(projectId);
-      const projectLines = (project.lyrics?.lines || []).map((l) => ({
+      const project = await projects.get(projectId);
+      if (!project) throw new Error('Project not found');
+      const projectLines = (project?.lyrics?.lines || []).map((l) => ({
         text: l.text || '',
         timestamp: l.timestamp ?? null,
         endTime: l.endTime ?? undefined,
@@ -142,7 +145,8 @@ export function useProjectActions({
           } catch { /* fall through to create */ }
         }
         try {
-          const res = await projects.create(serverPayload);
+          const recaptchaToken = executeRecaptcha ? await executeRecaptcha('restore_project') : undefined;
+          const res = await projects.create({ ...serverPayload, recaptchaToken });
           setActiveProjectId(res.projectId);
           activeProjectIdRef.current = res.projectId;
           localStorage.setItem(ACTIVE_PROJECT_ID_KEY, res.projectId);
@@ -152,7 +156,7 @@ export function useProjectActions({
       persist();
     }
     setPendingProject(null);
-  }, [pendingProject, setPendingProject, setLines, setSyncMode, setActiveLineIndex, setEditorModeRaw, setRestoredYtUrl, setRestoredPosition, setRestoredSpeed, setIsProjectLoading, activeProjectId, activeProjectIdRef, setActiveProjectId, mediaTitle, projectMetadata, duration]);
+  }, [pendingProject, setPendingProject, setLines, setSyncMode, setActiveLineIndex, setEditorModeRaw, setRestoredYtUrl, setRestoredPosition, setRestoredSpeed, setIsProjectLoading, activeProjectId, activeProjectIdRef, setActiveProjectId, mediaTitle, projectMetadata, duration, executeRecaptcha]);
 
   // ── Discard pending project ───────────────────────────────────────────────
   const handleDiscardProject = useCallback(() => {

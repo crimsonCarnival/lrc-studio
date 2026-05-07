@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { auth, spotify as spotifyApi, setAccessToken, clearAccessToken } from '@/api';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 
 const ACCESS_TOKEN_KEY = 'lrc-syncer-access-token';
 const REFRESH_TOKEN_KEY = 'lrc-syncer-refresh-token';
@@ -8,6 +9,7 @@ export function useAuth() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const refreshTimerRef = useRef(null);
+  const { executeRecaptcha } = useGoogleReCaptcha();
 
   const doLogout = useCallback(() => {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
@@ -59,8 +61,8 @@ export function useAuth() {
       if (at) {
         setAccessToken(at);
         try {
-          const result = await auth.me();
-          setUser(result.user);
+          const user = await auth.me();
+          setUser(user);
           scheduleRefresh();
           setLoading(false);
           return;
@@ -85,8 +87,8 @@ export function useAuth() {
             localStorage.setItem(REFRESH_TOKEN_KEY, result.refreshToken);
           }
           setAccessToken(result.accessToken);
-          const me = await auth.me();
-          setUser(me.user);
+          const user = await auth.me();
+          setUser(user);
           scheduleRefresh();
         } catch {
           // Both tokens invalid
@@ -105,7 +107,11 @@ export function useAuth() {
   }, [scheduleRefresh]);
 
   const login = useCallback(async ({ identifier, password }) => {
-    const result = await auth.login({ identifier, password });
+    let recaptchaToken = undefined;
+    if (executeRecaptcha) {
+      recaptchaToken = await executeRecaptcha('login');
+    }
+    const result = await auth.login({ identifier, password, recaptchaToken });
     localStorage.setItem(ACCESS_TOKEN_KEY, result.accessToken);
     localStorage.setItem(REFRESH_TOKEN_KEY, result.refreshToken);
     setAccessToken(result.accessToken);
@@ -119,10 +125,14 @@ export function useAuth() {
     }
 
     return result;
-  }, [scheduleRefresh]);
+  }, [scheduleRefresh, executeRecaptcha]);
 
   const register = useCallback(async ({ username, email, password }) => {
-    const result = await auth.register({ username, email, password });
+    let recaptchaToken = undefined;
+    if (executeRecaptcha) {
+      recaptchaToken = await executeRecaptcha('register');
+    }
+    const result = await auth.register({ username, email, password, recaptchaToken });
     localStorage.setItem(ACCESS_TOKEN_KEY, result.accessToken);
     localStorage.setItem(REFRESH_TOKEN_KEY, result.refreshToken);
     setAccessToken(result.accessToken);
@@ -137,7 +147,7 @@ export function useAuth() {
     }
 
     return result;
-  }, [scheduleRefresh]);
+  }, [scheduleRefresh, executeRecaptcha]);
 
   // ——— Spotify connect / disconnect ———
 

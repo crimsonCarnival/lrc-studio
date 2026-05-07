@@ -1,48 +1,149 @@
-import { request } from './api.client.js';
+import { gqlRequest } from './graphql.client.js';
+
+const GET_PROJECTS = `
+  query GetProjects($limit: Int, $offset: Int) {
+    projects(limit: $limit, offset: $offset) {
+      id
+      projectId
+      title
+      type
+      readOnly
+      public
+      createdAt
+      updatedAt
+      lineCount
+      syncedLineCount
+      upload {
+        id
+        fileName
+        title
+        source
+        duration
+        cloudinaryUrl
+        youtubeUrl
+        spotifyTrackId
+        artist
+      }
+    }
+  }
+`;
+
+const GET_PROJECT = `
+  query GetProject($id: ID!) {
+    project(id: $id) {
+      id
+      projectId
+      title
+      type
+      readOnly
+      public
+      createdAt
+      updatedAt
+      state {
+        syncMode
+        activeLineIndex
+        playbackPosition
+        playbackSpeed
+        saveTime
+        timezone
+        utcOffset
+      }
+      metadata {
+        description
+        tags
+      }
+      upload {
+        id
+        fileName
+        title
+        source
+        duration
+        cloudinaryUrl
+        youtubeUrl
+        spotifyTrackId
+        artist
+      }
+      lyrics {
+        id
+        projectId
+        editorMode
+        language
+        version
+        lines {
+          text
+          timestamp
+          endTime
+          secondary
+          translation
+          words { word time reading }
+          secondaryWords { word time }
+        }
+      }
+      user {
+        id
+        username
+        avatarUrl
+      }
+    }
+  }
+`;
+
+const CREATE_PROJECT = `
+  mutation CreateProject($input: CreateProjectInput!) {
+    createProject(input: $input) {
+      id
+      projectId
+      title
+    }
+  }
+`;
+
+const UPDATE_PROJECT = `
+  mutation UpdateProject($id: ID!, $input: UpdateProjectInput!) {
+    updateProject(id: $id, input: $input) {
+      id
+      projectId
+      title
+      public
+      readOnly
+    }
+  }
+`;
+
+const DELETE_PROJECT = `
+  mutation DeleteProject($id: ID!) {
+    deleteProject(id: $id)
+  }
+`;
 
 export const projectsService = {
-  async create(data) {
-    return request('/projects', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
+  async create(input) {
+    const data = await gqlRequest(CREATE_PROJECT, { input });
+    return data.createProject;
   },
 
-  async list() {
-    return request('/projects');
+  async list(limit = 20, offset = 0) {
+    const data = await gqlRequest(GET_PROJECTS, { limit, offset });
+    return data.projects;
   },
 
-  async get(projectId) {
-    return request(`/projects/${encodeURIComponent(projectId)}`);
+  async get(id) {
+    const data = await gqlRequest(GET_PROJECT, { id });
+    return data.project;
   },
 
-  async update(projectId, data) {
-    return request(`/projects/${encodeURIComponent(projectId)}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
+  async update(id, input) {
+    const data = await gqlRequest(UPDATE_PROJECT, { id, input });
+    return data.updateProject;
   },
 
-  async patch(projectId, data) {
-    return request(`/projects/${encodeURIComponent(projectId)}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
+  // patch maps to update for GQL
+  async patch(id, input) {
+    return this.update(id, input);
   },
 
-  async remove(projectId) {
-    return request(`/projects/${encodeURIComponent(projectId)}`, {
-      method: 'DELETE',
-    });
-  },
-
-  async getShare(projectId) {
-    return request(`/projects/share/${encodeURIComponent(projectId)}`);
-  },
-
-  async clone(projectId) {
-    return request(`/projects/clone/${encodeURIComponent(projectId)}`, {
-      method: 'POST',
-    });
+  async remove(id) {
+    const data = await gqlRequest(DELETE_PROJECT, { id });
+    return data.deleteProject;
   },
 };

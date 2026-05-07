@@ -3,9 +3,10 @@
  * @param {string|Date} date - The date to format.
  * @param {string} timezone - The timezone identifier (e.g., 'Europe/London' or 'auto').
  * @param {object} options - Intl.DateTimeFormat options.
+ * @param {string} locale - The locale to use for formatting.
  * @returns {string}
  */
-export function formatInTimezone(date, timezone, options = {}) {
+export function formatInTimezone(date, timezone, options = {}, locale = 'en') {
   const d = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(d.getTime())) return '';
 
@@ -14,18 +15,26 @@ export function formatInTimezone(date, timezone, options = {}) {
     timeZone: !timezone || timezone === 'auto' ? undefined : timezone,
   };
 
+  // Ensure locale is a string and fallback to 'en'
+  const targetLocale = (typeof locale === 'string' && locale) ? locale : 'en';
+
   try {
-    return new Intl.DateTimeFormat('default', finalOptions).format(d);
+    return new Intl.DateTimeFormat(targetLocale, finalOptions).format(d);
   } catch (err) {
-    console.warn(`Invalid timezone: ${timezone}`, err);
-    return d.toLocaleString();
+    console.warn(`Invalid timezone or locale: ${timezone}, ${targetLocale}`, err);
+    try {
+      // Try with just the locale if timezone is the issue
+      return new Intl.DateTimeFormat(targetLocale, options).format(d);
+    } catch (innerErr) {
+      return d.toLocaleString(targetLocale);
+    }
   }
 }
 
 /**
  * Gets a relative time string while respecting the timezone for the baseline.
  */
-export function getRelativeTime(dateStr, t, timezone) {
+export function getRelativeTime(dateStr, t, timezone, locale = 'en') {
   const now = new Date();
   const target = new Date(dateStr);
   const diff = now.getTime() - target.getTime();
@@ -44,5 +53,5 @@ export function getRelativeTime(dateStr, t, timezone) {
     year: 'numeric',
     month: 'short',
     day: 'numeric'
-  });
+  }, locale);
 }

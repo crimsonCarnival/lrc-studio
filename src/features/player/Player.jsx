@@ -1,6 +1,8 @@
 import { useState, useCallback, useMemo, useRef, forwardRef, useImperativeHandle, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '@/contexts/useSettings';
+import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 
 import { formatTime } from '@/utils/formatTime';
 import useLocalAudio from './useLocalAudio';
@@ -81,7 +83,7 @@ const Player = forwardRef(function Player(
   const fetchUploads = useCallback(async () => {
     if (!getAccessToken()) return;
     try {
-      const { uploads } = await uploadsApi.listMedia();
+      const uploads = await uploadsApi.listMedia();
       setMediaUploads(uploads || []);
     } catch { /* ignore */ }
   }, []);
@@ -186,6 +188,8 @@ const Player = forwardRef(function Player(
     onTitleChange?.(track.name);
     setShowSpotifyBrowser(false);
   }, [sp, onTitleChange]);
+
+  const { login: handleSpotifyLogin } = useSpotifyAuth();
 
   const handleSpotifyLoad = () => {
     const trimmed = spotifyUrl.trim();
@@ -480,137 +484,107 @@ const Player = forwardRef(function Player(
         )}
 
         {/* Unified media loader — shown when no media is loaded */}
+        {/* Compact unified media loader for docked bar */}
         {!hasMedia && !yt.ytLoading && !sp.loading && (
-          <div className="animate-fade-in w-full max-w-[1200px] mx-auto px-4 py-4 space-y-4">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700/50 flex items-center gap-2">
-                <Cloud className="w-3.5 h-3.5 text-primary" />
-                <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">{t('player.uploadPhase') || 'Upload Phase'}</span>
-              </div>
-              <div className="flex-1 h-px bg-zinc-800/60" />
-            </div>
+          <div className="animate-fade-in w-full max-w-[1000px] mx-auto flex items-center justify-center gap-3">
+            {/* Local Audio */}
+            <label
+              htmlFor="audio-file-input"
+              className="flex items-center gap-2 px-4 py-2 h-10 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/80 border border-zinc-700/50 hover:border-primary/40 transition-all cursor-pointer shadow-sm group"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const file = e.dataTransfer.files?.[0];
+                if (file) local.handleFileChange({ target: { files: [file] } });
+              }}
+            >
+              <FolderOpen className="w-4 h-4 text-zinc-400 group-hover:text-primary transition-colors" />
+              <span className="text-sm font-medium text-zinc-300 group-hover:text-white transition-colors">{t('player.dropAudio')}</span>
+              <input id="audio-file-input" type="file" accept="audio/*" onChange={local.handleFileChange} className="hidden" />
+            </label>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Local File Drop Zone */}
-              <label
-                htmlFor="audio-file-input"
-                className="group relative flex flex-col items-center justify-center gap-3 p-6 rounded-2xl bg-zinc-800/30 hover:bg-zinc-800/60 border border-zinc-700/40 hover:border-primary/40 transition-all cursor-pointer text-center"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const file = e.dataTransfer.files?.[0];
-                  if (file) local.handleFileChange({ target: { files: [file] } });
+            <div className="w-px h-6 bg-zinc-800/80 mx-1" />
+
+            {/* URL Input (YouTube/CDN/Spotify) */}
+            <div className="flex items-center gap-2 flex-1 max-w-[450px]">
+              <div className="relative w-full">
+                <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
+                <Input
+                  value={yt.ytUrl || spotifyUrl}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val.includes('spotify')) {
+                      setSpotifyUrl(val);
+                      yt.setYtUrl('');
+                    } else {
+                      yt.setYtUrl(val);
+                      setSpotifyUrl('');
+                    }
+                    yt.setYtError('');
+                    setSpotifyError('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (spotifyUrl) handleSpotifyLoad();
+                      else handleUrlLoad();
+                    }
+                  }}
+                  placeholder={t('player.pasteUrl') || "Paste YouTube, Spotify, or CDN URL..."}
+                  className="pl-8 pr-16 bg-zinc-900/50 border-zinc-700/50 text-sm h-10 rounded-xl shadow-inner w-full"
+                />
+                
+                {/* Spotify Quick Actions */}
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                  <Tip content={getAccessToken() ? t('spotify.browse') : t('spotify.authRequired')}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => getAccessToken() ? setShowSpotifyBrowser(true) : handleSpotifyLogin()}
+                      className="w-8 h-8 rounded-lg text-zinc-500 hover:text-green-500 hover:bg-green-500/10"
+                    >
+                      <SpotifyIcon className={`w-4 h-4 ${!getAccessToken() ? 'opacity-40 grayscale' : ''}`} />
+                    </Button>
+                  </Tip>
+                  <Tip content={getAccessToken() ? t('spotify.syncNowPlaying') : t('spotify.authRequired')}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      disabled={!getAccessToken() || syncingNowPlaying}
+                      onClick={handleSyncNowPlaying}
+                      className="w-8 h-8 rounded-lg text-zinc-500 hover:text-green-500 hover:bg-green-500/10 disabled:opacity-30"
+                    >
+                      <Headphones className={`w-3.5 h-3.5 ${syncingNowPlaying ? 'animate-pulse text-green-500' : ''}`} />
+                    </Button>
+                  </Tip>
+                </div>
+              </div>
+              <Button
+                onClick={() => {
+                  if (spotifyUrl) handleSpotifyLoad();
+                  else handleUrlLoad();
                 }}
+                disabled={cdnLoading}
+                className="h-10 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/50 font-medium shrink-0"
               >
-                <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center group-hover:scale-110 group-hover:border-primary/40 transition-all shadow-sm">
-                  <FolderOpen className="w-6 h-6 text-zinc-500 group-hover:text-primary transition-colors" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-zinc-200 group-hover:text-white transition-colors">{t('player.dropAudio')}</p>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">{t('player.dropHint')}</p>
-                </div>
-                <input id="audio-file-input" type="file" accept="audio/*" onChange={local.handleFileChange} className="hidden" />
-              </label>
-
-              {/* YouTube / CDN Card */}
-              <div className="flex flex-col gap-4 p-5 rounded-2xl bg-zinc-800/30 border border-zinc-700/40">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center border border-red-500/20">
-                    <Video className="w-4 h-4 text-red-500/70" />
-                  </div>
-                  <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider">{t('uploads.youtube') || 'YouTube'} / CDN</span>
-                </div>
-                <div className="space-y-3">
-                  <div className="relative">
-                    <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 pointer-events-none" />
-                    <Input
-                      value={yt.ytUrl}
-                      onChange={(e) => { yt.setYtUrl(e.target.value); yt.setYtError(''); }}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleUrlLoad(); }}
-                      placeholder={t('player.pasteUrl') || 'Paste YouTube or CDN URL...'}
-                      className="pl-9 bg-zinc-900/50 border-zinc-700/50 text-sm h-10"
-                    />
-                  </div>
-                  <Button
-                    onClick={handleUrlLoad}
-                    disabled={cdnLoading}
-                    className="w-full bg-red-600 hover:bg-red-500 text-white font-semibold h-10 shadow-sm"
-                  >
-                    {cdnLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : t('player.load')}
-                  </Button>
-                  {yt.ytError && <p className="text-[10px] text-red-400 mt-1">{yt.ytError}</p>}
-                </div>
-              </div>
-
-              {/* Spotify / Cloud Card */}
-              <div className="flex flex-col gap-4 p-5 rounded-2xl bg-zinc-800/30 border border-zinc-700/40">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center border border-green-500/20">
-                      <SpotifyIcon className="w-4 h-4 text-green-500/70" />
-                    </div>
-                    <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider">Spotify</span>
-                  </div>
-                  {getAccessToken() && (
-                    <button onClick={() => setShowSpotifyBrowser(true)} className="text-[10px] font-bold text-green-500 hover:text-green-400 uppercase tracking-widest">
-                      {t('spotify.browse')}
-                    </button>
-                  )}
-                </div>
-
-                {getAccessToken() ? (
-                  <div className="space-y-3">
-                    <div className="relative">
-                      <SpotifyIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-green-500/50 pointer-events-none" />
-                      <Input
-                        value={spotifyUrl}
-                        onChange={(e) => { setSpotifyUrl(e.target.value); setSpotifyError(''); }}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleSpotifyLoad(); }}
-                        placeholder={t('player.pasteSpotifyUrl')}
-                        className="pl-9 bg-zinc-900/50 border-zinc-700/50 text-sm h-10"
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button onClick={handleSpotifyLoad} className="flex-1 bg-green-600 hover:bg-green-500 text-white font-semibold h-10">
-                        {t('player.load')}
-                      </Button>
-                      <Tip content={t('spotify.syncNowPlaying')}>
-                        <Button
-                          variant="outline"
-                          onClick={handleSyncNowPlaying}
-                          disabled={syncingNowPlaying}
-                          className="px-3 border-zinc-700 bg-zinc-800/50 hover:bg-zinc-700 h-10"
-                        >
-                          <Headphones className={`w-4 h-4 text-green-500 ${syncingNowPlaying ? 'animate-pulse' : ''}`} />
-                        </Button>
-                      </Tip>
-                    </div>
-                    {spotifyError && <p className="text-[10px] text-red-400 mt-1">{spotifyError}</p>}
-                  </div>
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center gap-2 border border-dashed border-zinc-700/50 rounded-xl p-4 bg-zinc-900/20">
-                    <SpotifyIcon className="w-6 h-6 text-zinc-700 opacity-50" />
-                    <p className="text-[10px] text-zinc-500 text-center uppercase tracking-widest">{t('spotify.authRequired') || 'Auth Required'}</p>
-                  </div>
-                )}
-              </div>
+                {cdnLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : t('player.load')}
+              </Button>
             </div>
 
-            {/* Uploads Popover / Selector - Unified row at bottom */}
             {getAccessToken() && (
-              <div className="pt-2">
+              <>
+                <div className="w-px h-6 bg-zinc-800/80 mx-1" />
                 <Popover onOpenChange={(open) => { if (open) fetchUploads(); }}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="ghost"
-                      className="w-full flex items-center justify-center gap-3 h-12 rounded-2xl bg-zinc-800/20 hover:bg-zinc-800/40 border border-zinc-800/50 hover:border-zinc-700 transition-all text-zinc-400 hover:text-zinc-200"
+                      className="flex items-center gap-2 h-10 px-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/60 border border-zinc-700/30 hover:border-zinc-700 transition-all text-zinc-300"
                     >
-                      <Cloud className="w-4 h-4 text-zinc-500" />
-                      <span className="text-xs font-semibold uppercase tracking-widest">{t('uploads.selectFromUploads')}</span>
-                      <ChevronDown className="w-3.5 h-3.5 opacity-50" />
+                      <Cloud className="w-4 h-4 text-blue-400/80" />
+                      <span className="text-sm font-medium">{t('uploads.title')}</span>
+                      <ChevronDown className="w-3.5 h-3.5 opacity-50 ml-1" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] max-h-[300px] overflow-y-auto p-1 glass-dark border-zinc-700/50 shadow-2xl" align="center">
+                  <PopoverContent className="w-[320px] max-h-[300px] overflow-y-auto p-1 glass-dark border-zinc-700/50 shadow-2xl" align="end" sideOffset={12}>
                     {mediaUploads.length === 0 ? (
                       <p className="text-xs text-zinc-500 text-center py-6">{t('uploads.empty')}</p>
                     ) : (
@@ -619,21 +593,18 @@ const Player = forwardRef(function Player(
                           <button
                             key={upload.id}
                             onClick={() => handleSelectUpload(upload)}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-zinc-800/80 transition-all group"
+                            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left hover:bg-zinc-800/80 transition-all group"
                           >
-                            <div className="w-10 h-10 rounded-lg flex-shrink-0 overflow-hidden bg-zinc-800 border border-zinc-700 group-hover:border-primary/40 flex items-center justify-center transition-all">
+                            <div className="w-8 h-8 rounded bg-zinc-800 border border-zinc-700 group-hover:border-primary/40 flex items-center justify-center shrink-0">
                               {upload.source === 'youtube'
-                                ? <Video className="w-4 h-4 text-red-400" />
+                                ? <Video className="w-3.5 h-3.5 text-red-400" />
                                 : upload.source === 'spotify'
-                                  ? <SpotifyIcon className="w-4 h-4 text-green-400" />
-                                  : <Cloud className="w-4 h-4 text-blue-400" />}
+                                  ? <SpotifyIcon className="w-3.5 h-3.5 text-green-400" />
+                                  : <Cloud className="w-3.5 h-3.5 text-blue-400" />}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-zinc-200 truncate group-hover:text-primary transition-colors">
+                              <p className="text-sm font-medium text-zinc-200 truncate group-hover:text-primary transition-colors">
                                 {upload.title || upload.fileName || upload.youtubeUrl || t('uploads.untitled')}
-                              </p>
-                              <p className="text-[10px] text-zinc-500 mt-0.5 uppercase tracking-widest font-bold opacity-60">
-                                {upload.source} {upload.duration > 0 && `· ${formatTime(upload.duration)}`}
                               </p>
                             </div>
                           </button>
@@ -642,6 +613,13 @@ const Player = forwardRef(function Player(
                     )}
                   </PopoverContent>
                 </Popover>
+              </>
+            )}
+            
+            {/* Show error if any below the compact bar absolutely */}
+            {(yt.ytError || spotifyError) && (
+              <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] px-2 py-0.5 rounded">
+                {yt.ytError || spotifyError}
               </div>
             )}
           </div>
@@ -684,17 +662,17 @@ const Player = forwardRef(function Player(
 
                {/* ── Left: Dock Toggle ── */}
                <div className="flex items-center gap-2 z-10">
-                 <Tip content={playerTop ? (t('player.moveToBottom') || 'Move to bottom') : (t('player.moveToTop') || 'Move to top')}>
-                   <Button
-                     id="dock-toggle-btn"
-                     variant="ghost"
-                     size="icon"
-                     onClick={() => onDockToggle?.()}
-                     className="w-8 h-8 shrink-0 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/60"
-                   >
-                     {playerTop ? <PanelBottom className="w-4 h-4" /> : <PanelTop className="w-4 h-4" />}
-                   </Button>
-                 </Tip>
+                    <Tip content={playerTop ? (t('player.moveToBottom') || 'Move to bottom') : (t('player.moveToTop') || 'Move to top')}>
+                      <Button
+                        id="dock-toggle-btn"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onDockToggle?.()}
+                        className="shrink-0 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/60"
+                      >
+                        {playerTop ? <PanelBottom className="w-4 h-4" /> : <PanelTop className="w-4 h-4" />}
+                      </Button>
+                    </Tip>
                </div>
  
                {/* ── CENTERED: Transport Cluster (Times + Speed + Nudges + Play + Volume) ── */}
@@ -716,62 +694,63 @@ const Player = forwardRef(function Player(
                  />
 
                  <div className="flex items-center gap-0.5 sm:gap-1.5">
-                   <Tip content="-0.1s">
-                     <Button
-                       variant="ghost"
-                       size="icon"
-                       onClick={() => seek(currentTime - 0.1)}
-                       className="w-8 h-8 text-zinc-500 hover:text-zinc-200"
-                     >
-                       <ChevronLeft className="w-4 h-4" />
-                     </Button>
-                   </Tip>
- 
-                   <Tip content={`-${settings.playback?.seekTime ?? 5}s`}>
-                     <Button
-                       variant="ghost"
-                       size="icon"
-                       onClick={() => seek(Math.max(0, currentTime - (settings.playback?.seekTime ?? 5)))}
-                       className="w-8 h-8 text-zinc-500 hover:text-zinc-200"
-                     >
-                       <SkipBack className="w-4 h-4" />
-                     </Button>
-                   </Tip>
- 
-                   <Button
-                     id="play-pause-btn"
-                     onClick={togglePlay}
-                     aria-label={isPlaying ? t('shortcuts.playPause') || 'Pause' : t('shortcuts.playPause') || 'Play'}
-                     className="w-10 h-10 rounded-full bg-primary hover:bg-primary-dim text-zinc-950 hover:scale-105 active:scale-95 glow-primary flex-shrink-0 p-0"
-                   >
-                     {isPlaying ? (
-                       <Pause className="w-4 h-4" fill="currentColor" />
-                     ) : (
-                       <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
-                     )}
-                   </Button>
- 
-                   <Tip content={`+${settings.playback?.seekTime ?? 5}s`}>
-                     <Button
-                       variant="ghost"
-                       size="icon"
-                       onClick={() => seek(Math.min(duration, currentTime + (settings.playback?.seekTime ?? 5)))}
-                       className="w-8 h-8 text-zinc-500 hover:text-zinc-200"
-                     >
-                       <SkipForward className="w-4 h-4" />
-                     </Button>
-                   </Tip>
- 
-                   <Tip content="+0.1s">
-                     <Button
-                       variant="ghost"
-                       size="icon"
-                       onClick={() => seek(currentTime + 0.1)}
-                       className="w-8 h-8 text-zinc-500 hover:text-zinc-200"
-                     >
-                       <ChevronRight className="w-4 h-4" />
-                     </Button>
-                   </Tip>
+                    <Tip content="-0.1s">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => seek(currentTime - 0.1)}
+                        className="text-zinc-500 hover:text-zinc-200"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                    </Tip>
+
+                    <Tip content={`-${settings.playback?.seekTime ?? 5}s`}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => seek(Math.max(0, currentTime - (settings.playback?.seekTime ?? 5)))}
+                        className="text-zinc-500 hover:text-zinc-200"
+                      >
+                        <SkipBack className="w-4 h-4" />
+                      </Button>
+                    </Tip>
+
+                    <Button
+                      id="play-pause-btn"
+                      size="icon"
+                      onClick={togglePlay}
+                      aria-label={isPlaying ? t('shortcuts.playPause') || 'Pause' : t('shortcuts.playPause') || 'Play'}
+                      className="rounded-full bg-primary hover:bg-primary-dim text-zinc-950 hover:scale-105 active:scale-95 glow-primary flex-shrink-0"
+                    >
+                      {isPlaying ? (
+                        <Pause className="w-4 h-4" fill="currentColor" />
+                      ) : (
+                        <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                      )}
+                    </Button>
+
+                    <Tip content={`+${settings.playback?.seekTime ?? 5}s`}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => seek(Math.min(duration, currentTime + (settings.playback?.seekTime ?? 5)))}
+                        className="text-zinc-500 hover:text-zinc-200"
+                      >
+                        <SkipForward className="w-4 h-4" />
+                      </Button>
+                    </Tip>
+
+                    <Tip content="+0.1s">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => seek(currentTime + 0.1)}
+                        className="text-zinc-500 hover:text-zinc-200"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </Tip>
                  </div>
 
                  {/* Volume */}
@@ -790,37 +769,37 @@ const Player = forwardRef(function Player(
 
  
                  {syncMode && (
-                   <Tip content={t('player.mark') || 'Mark'}>
-                     <Button
-                       id="mark-btn"
-                       variant="ghost"
-                       size="icon"
-                       onPointerDown={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent('editor:mark')); }}
-                       className="w-8 h-8 shrink-0 text-zinc-400 hover:text-primary hover:bg-primary/10"
-                     >
-                       <Bookmark className="w-4 h-4" />
-                     </Button>
-                   </Tip>
+                    <Tip content={t('player.mark') || 'Mark'}>
+                      <Button
+                        id="mark-btn"
+                        variant="ghost"
+                        size="icon"
+                        onPointerDown={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent('editor:mark')); }}
+                        className="shrink-0 text-zinc-400 hover:text-primary hover:bg-primary/10"
+                      >
+                        <Bookmark className="w-4 h-4" />
+                      </Button>
+                    </Tip>
                  )}
  
-                 <Tip content={settings.playback?.loopCurrentLine
-                   ? (loopA != null && loopB != null)
-                     ? `${t('player.loopActive')}: ${formatTime(loopA)} – ${formatTime(loopB)} · ${t('player.clickToDisable')}`
-                     : t('player.setLoop')
-                   : t('player.setLoop') || 'Loop current line'
-                 }>
-                   <Button
-                     variant="ghost"
-                     size="icon"
-                     onClick={() => updateSetting('playback.loopCurrentLine', !settings.playback?.loopCurrentLine)}
-                     className={`rounded-full shrink-0 h-8 w-8 ${settings.playback?.loopCurrentLine
-                       ? 'bg-violet-500/20 text-violet-400 hover:bg-violet-500/30 border border-violet-500/30'
-                       : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800'
-                     }`}
-                   >
-                     <Repeat className="w-4 h-4" />
-                   </Button>
-                 </Tip>
+<Tip content={settings.playback?.loopCurrentLine
+                    ? (loopA != null && loopB != null)
+                      ? `${t('player.loopActive')}: ${formatTime(loopA)} – ${formatTime(loopB)} · ${t('player.clickToDisable')}`
+                      : t('player.setLoop')
+                    : t('player.setLoop') || 'Loop current line'
+                  }>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => updateSetting('playback.loopCurrentLine', !settings.playback?.loopCurrentLine)}
+                        className={`rounded-full shrink-0 ${settings.playback?.loopCurrentLine
+                          ? 'bg-violet-500/20 text-violet-400 hover:bg-violet-500/30 border border-violet-500/30'
+                          : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800'
+                        }`}
+                      >
+                        <Repeat className="w-4 h-4" />
+                      </Button>
+                    </Tip>
                </div>
             </div>
           </div>
@@ -961,8 +940,8 @@ const Player = forwardRef(function Player(
                   className="w-10 h-10 rounded-full bg-primary flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform shadow-lg shadow-primary/20"
                 >
                   {isPlaying
-                    ? <Pause className="w-4 h-4 text-zinc-950" fill="currentColor" />
-                    : <Play className="w-4 h-4 text-zinc-950 ml-0.5" fill="currentColor" />}
+                    ? <Pause className="size-4 text-zinc-950" fill="currentColor" />
+                    : <Play className="size-4 text-zinc-950 ml-0.5" fill="currentColor" />}
                 </button>
                 
                 <div className="flex-1 flex flex-col gap-1">
@@ -1005,7 +984,7 @@ const Player = forwardRef(function Player(
                   onClick={() => seek(Math.max(0, currentTime - (settings.playback?.seekTime ?? 5)))}
                   className="flex flex-col items-center justify-center w-14 h-14 rounded-2xl text-zinc-400 active:text-zinc-100 active:bg-zinc-800 transition-all shrink-0"
                 >
-                  <SkipBack className="w-6 h-6" />
+                  <SkipBack className="size-6" />
                   <span className="text-[10px] font-bold mt-1 text-zinc-500">{settings.playback?.seekTime ?? 5}</span>
                 </button>
 
@@ -1036,7 +1015,7 @@ const Player = forwardRef(function Player(
                   }}
                   className={`flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all shrink-0 ${loopA != null && loopB != null ? 'text-accent-purple bg-accent-purple/10' : 'text-zinc-400 active:bg-zinc-800'}`}
                 >
-                  <Repeat className="w-6 h-6" />
+                  <Repeat className="size-6" />
                   <span className="text-[9px] font-bold mt-1 opacity-60 uppercase tracking-tight">{t('player.loop') || 'Loop'}</span>
                 </button>
 
@@ -1048,7 +1027,7 @@ const Player = forwardRef(function Player(
                   onClick={() => seek(Math.min(duration, currentTime + (settings.playback?.seekTime ?? 5)))}
                   className="flex flex-col items-center justify-center w-14 h-14 rounded-2xl text-zinc-400 active:text-zinc-100 active:bg-zinc-800 transition-all shrink-0"
                 >
-                  <SkipForward className="w-6 h-6" />
+                  <SkipForward className="size-6" />
                   <span className="text-[10px] font-bold mt-1 text-zinc-500">{settings.playback?.seekTime ?? 5}</span>
                 </button>
 
@@ -1057,7 +1036,7 @@ const Player = forwardRef(function Player(
                     onPointerDown={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent('editor:mark')); }}
                     className="w-14 h-14 rounded-3xl bg-primary/20 border border-primary/40 text-primary active:bg-primary/30 active:scale-95 transition-all flex items-center justify-center shrink-0"
                   >
-                    <div className="w-4 h-4 rounded-full bg-current shadow-[0_0_15px_rgba(var(--color-primary-rgb),0.6)]" />
+                    <div className="size-4 rounded-full bg-current shadow-[0_0_15px_rgba(var(--color-primary-rgb),0.6)]" />
                   </button>
                 )}
               </div>
@@ -1066,28 +1045,61 @@ const Player = forwardRef(function Player(
         )}
       </div>
 
-      {/* Mobile Spotify Browser overlay */}
-      {showSpotifyBrowser && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-zinc-950/95 backdrop-blur-sm flex flex-col animate-fade-in">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-            <span className="text-sm font-semibold text-green-400 flex items-center gap-2">
-              <SpotifyIcon className="w-4 h-4" />
-              {t('spotify.browse')}
-            </span>
-            <button
-              onClick={() => setShowSpotifyBrowser(false)}
-              className="text-zinc-400 hover:text-zinc-200 h-7 px-2 text-xs"
-            >
-              ✕
-            </button>
+      {/* Spotify Browser Modal — Rendered in Portal to escape player container constraints */}
+      {showSpotifyBrowser && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 md:p-8 animate-fade-in">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-zinc-950/40 backdrop-blur-xl transition-all duration-500" 
+            onClick={() => setShowSpotifyBrowser(false)} 
+          />
+          
+          {/* Modal Container */}
+          <div className="relative w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-4xl bg-zinc-900 sm:border border-zinc-700/50 sm:rounded-3xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden animate-scale-in">
+            {/* Glossy Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-800/80 bg-zinc-900/80 backdrop-blur-md sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center border border-green-500/20 shadow-inner">
+                  <SpotifyIcon className="w-6 h-6 text-green-500" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-lg font-bold text-white tracking-tight">{t('spotify.browse')}</span>
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold opacity-60">Spotify Music Library</span>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowSpotifyBrowser(false)}
+                className="w-10 h-10 text-zinc-400 hover:text-white hover:bg-zinc-800/80 rounded-full transition-all group"
+              >
+                <div className="relative w-5 h-5">
+                  <div className="absolute top-1/2 left-0 w-5 h-0.5 bg-current rotate-45 rounded-full" />
+                  <div className="absolute top-1/2 left-0 w-5 h-0.5 bg-current -rotate-45 rounded-full" />
+                </div>
+              </Button>
+            </div>
+            
+            {/* Browser Content */}
+            <div className="flex-1 overflow-hidden flex flex-col bg-zinc-950/20">
+              <SpotifyBrowser
+                onSelectTrack={handleSpotifyBrowserSelect}
+                onClose={() => setShowSpotifyBrowser(false)}
+              />
+            </div>
+            
+            {/* Mobile Footer */}
+            <div className="sm:hidden p-4 bg-zinc-900/80 backdrop-blur-md border-t border-zinc-800">
+               <Button 
+                 onClick={() => setShowSpotifyBrowser(false)} 
+                 className="w-full h-12 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold rounded-xl border border-zinc-700/50 shadow-lg active:scale-95 transition-all"
+               >
+                 {t('common.close') || 'Cerrar'}
+               </Button>
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-3">
-            <SpotifyBrowser
-              onSelectTrack={handleSpotifyBrowserSelect}
-              onClose={() => setShowSpotifyBrowser(false)}
-            />
-          </div>
-        </div>
+        </div>,
+        document.body
       )}
 
 

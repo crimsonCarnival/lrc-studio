@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { projects, uploads, getAccessToken } from '@/api';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 
 const PROJECT_KEY = 'lrc-syncer-project';
 const SHARED_PROJECT_KEY = 'lrc-syncer-shared-project';
@@ -101,6 +102,7 @@ export function useManualSave({
   onSaveSuccess,
 }) {
   const { t } = useTranslation();
+  const { executeRecaptcha } = useGoogleReCaptcha();
 
   const buildProjectPayload = useCallback(() => {
     const tzSetting = settings.advanced.timezone;
@@ -138,7 +140,7 @@ export function useManualSave({
     const key = isSharedProjectRef.current ? SHARED_PROJECT_KEY : PROJECT_KEY;
     const payload = buildProjectPayload();
     const finalMetadata = overrides.metadata !== undefined ? overrides.metadata : projectMetadata;
-    const finalTitle = overrides.title !== undefined ? overrides.title : (mediaTitle || '');
+    let finalTitle = overrides.title !== undefined ? overrides.title : (mediaTitle || '');
     payload.metadata = finalMetadata;
     payload.title = finalTitle;
     localStorage.setItem(key, JSON.stringify(payload));
@@ -155,7 +157,7 @@ export function useManualSave({
           sessionUploadIdRef.current = cloudinaryAudio.id;
         } else {
           try {
-            const { upload } = await uploads.saveMedia({ source: 'cloudinary', cloudinaryUrl: cloudinaryAudio.cloudinaryUrl, publicId: cloudinaryAudio.publicId, fileName: cloudinaryAudio.fileName, title: overrides?.title ?? mediaTitle ?? '', duration: cloudinaryAudio.duration });
+            const upload = await uploads.saveMedia({ source: 'cloudinary', cloudinaryUrl: cloudinaryAudio.cloudinaryUrl, publicId: cloudinaryAudio.publicId, fileName: cloudinaryAudio.fileName, title: overrides?.title ?? mediaTitle ?? '', duration: cloudinaryAudio.duration });
             uploadIdToSave = upload.id;
             sessionUploadIdRef.current = upload.id;
             setCloudinaryAudio((prev) => ({ ...prev, id: upload.id }));
@@ -163,9 +165,13 @@ export function useManualSave({
         }
       } else if (!uploadIdToSave && payload.ytUrl) {
         try {
-          const { upload } = await uploads.saveMedia({ source: 'youtube', youtubeUrl: payload.ytUrl, fileName: '', title: overrides?.title ?? mediaTitle ?? '', duration: duration || null });
+          const upload = await uploads.saveMedia({ source: 'youtube', youtubeUrl: payload.ytUrl, fileName: '', title: '', duration: duration || null });
           uploadIdToSave = upload.id;
           sessionUploadIdRef.current = upload.id;
+          const isGeneric = ['Sin título', 'Untitled', '無題'].includes(finalTitle);
+          if (isGeneric && upload.title) {
+            finalTitle = upload.title;
+          }
         } catch (err) { console.error('Failed to save upload:', err); }
       }
 
@@ -191,25 +197,41 @@ export function useManualSave({
       let uploadIdToSave = null;
       if (cloudinaryAudio?.id) { uploadIdToSave = cloudinaryAudio.id; }
       else if (cloudinaryAudio) {
-        try { const { upload } = await uploads.saveMedia({ source: 'cloudinary', cloudinaryUrl: cloudinaryAudio.cloudinaryUrl, publicId: cloudinaryAudio.publicId, fileName: cloudinaryAudio.fileName, title: cloudinaryAudio.fileName?.replace(/\.[^/.]+$/, '') || '', duration: cloudinaryAudio.duration }); uploadIdToSave = upload.id; setCloudinaryAudio((p) => ({ ...p, id: upload.id })); } catch (err) { console.error(err); }
+        try { const upload = await uploads.saveMedia({ source: 'cloudinary', cloudinaryUrl: cloudinaryAudio.cloudinaryUrl, publicId: cloudinaryAudio.publicId, fileName: cloudinaryAudio.fileName, title: cloudinaryAudio.fileName?.replace(/\.[^/.]+$/, '') || '', duration: cloudinaryAudio.duration }); uploadIdToSave = upload.id; setCloudinaryAudio((p) => ({ ...p, id: upload.id })); } catch (err) { console.error(err); }
       } else if (payload.ytUrl) {
-        try { const { upload } = await uploads.saveMedia({ source: 'youtube', youtubeUrl: payload.ytUrl, fileName: '', title: finalTitle, duration: duration || null }); uploadIdToSave = upload.id; } catch (err) { console.error(err); }
+        try { 
+          const upload = await uploads.saveMedia({ source: 'youtube', youtubeUrl: payload.ytUrl, fileName: '', title: '', duration: duration || null }); 
+          uploadIdToSave = upload.id; 
+          const isGeneric = ['Sin título', 'Untitled', '無題'].includes(finalTitle);
+          if (isGeneric && upload.title) {
+            finalTitle = upload.title;
+          }
+        } catch (err) { console.error(err); }
       }
       const createData = { title: finalTitle, metadata: finalMetadata, lyrics: { editorMode, lines: payload.lines }, state: { syncMode, activeLineIndex, playbackPosition: payload.playbackPosition || 0, playbackSpeed: payload.playbackSpeed || 1, saveTime: payload.saveTime, timezone: payload.timezone, utcOffset: payload.utcOffset }, readOnly: false };
       if (uploadIdToSave) createData.uploadId = uploadIdToSave;
-      projects.create(createData)
-        .then(({ projectId }) => {
+
+      const performCreate = async () => {
+        try {
+          const recaptchaToken = executeRecaptcha ? await executeRecaptcha('create_project').catch(err => { console.warn('reCAPTCHA failed:', err); return undefined; }) : undefined;
+          const res = await projects.create({ ...createData, recaptchaToken });
+          const { projectId } = res;
           setActiveProjectId(projectId);
           activeProjectIdRef.current = projectId;
           updateServerSnapshot(lastServerSnapshotRef, { title: createData.title, metadata: createData.metadata, state: createData.state, editorMode, lines: payload.lines, uploadId: uploadIdToSave ?? undefined });
           try { localStorage.setItem(ACTIVE_PROJECT_ID_KEY, projectId); } catch { /* ignore */ }
           onSaveSuccess?.();
           toast.success(t('project.created') || 'Project created');
-        })
-        .catch((err) => { console.error(err); toast.error(t('project.createFailed') || 'Failed to create project'); })
-        .finally(() => { isCreatingProjectRef.current = false; });
+        } catch (err) {
+          console.error(err);
+          toast.error(t('project.createFailed') || 'Failed to create project');
+        } finally {
+          isCreatingProjectRef.current = false;
+        }
+      };
+      performCreate();
     }
-  }, [buildProjectPayload, mediaTitle, projectMetadata, editorMode, syncMode, activeLineIndex, cloudinaryAudio, duration, t, isSharedProjectRef, activeProjectIdRef, isCreatingProjectRef, sessionUploadIdRef, lastServerSnapshotRef, setIsAutosaving, setIsSaving, setActiveProjectId, setCloudinaryAudio]);
+  }, [buildProjectPayload, mediaTitle, projectMetadata, editorMode, syncMode, activeLineIndex, cloudinaryAudio, duration, t, isSharedProjectRef, activeProjectIdRef, isCreatingProjectRef, sessionUploadIdRef, lastServerSnapshotRef, setIsAutosaving, setIsSaving, setActiveProjectId, setCloudinaryAudio, executeRecaptcha]);
 
   // Save-after-import: fires after state settles
   const [importTick, setImportTick] = useState(0);

@@ -42,8 +42,8 @@ export function AppHeader({
   const fetchCounts = async () => {
     if (!user) return;
     try {
-      const [pRes, uRes] = await Promise.all([projects.list(), uploads.list()]);
-      setCounts({ library: pRes.projects?.length || 0, uploads: uRes.uploads?.length || 0 });
+      const [pRes, uRes] = await Promise.all([projects.list(), uploads.listMedia()]);
+      setCounts({ library: pRes?.length || 0, uploads: uRes?.length || 0 });
     } catch (err) { console.error('Failed to fetch counts for menu:', err); }
   };
 
@@ -91,9 +91,13 @@ export function AppHeader({
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink">
           <button
             onClick={goHomeOrWarn}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-primary to-accent-purple flex items-center justify-center shadow-lg shadow-primary/20 flex-shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
           >
-            <Music2 className="w-4 sm:w-5 h-4 sm:h-5 text-white" strokeWidth={2} />
+            <img 
+              src="https://res.cloudinary.com/dzjid2tos/image/upload/v1778106770/lrc-logo_dkumwz.png" 
+              alt="LRC Studio" 
+              className="w-full h-full object-contain"
+            />
           </button>
 
           <div className="flex flex-col lg:flex-row lg:items-center gap-0 lg:gap-2 min-w-0">

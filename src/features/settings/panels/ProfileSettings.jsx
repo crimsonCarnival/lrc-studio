@@ -9,10 +9,12 @@ import { Button } from '@ui/button';
 import { Input } from '@ui/input';
 import { Textarea } from '@ui/textarea';
 import toast from 'react-hot-toast';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 
 export default function ProfileSettings({ searchTerm }) {
   const { t } = useTranslation();
   const { user, setUser, connectSpotify, disconnectSpotify } = useAuthContext();
+  const { executeRecaptcha } = useGoogleReCaptcha();
   
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -53,7 +55,8 @@ export default function ProfileSettings({ searchTerm }) {
 
     setUploading(true);
     try {
-      const { url, publicId } = await uploadsService.uploadAvatar(file);
+      const recaptchaToken = executeRecaptcha ? await executeRecaptcha('upload_avatar') : undefined;
+      const { url, publicId } = await uploadsService.uploadAvatar(file, recaptchaToken);
       const { user: updatedUser } = await authService.updateProfile({ 
         avatarUrl: url, 
         avatarPublicId: publicId 

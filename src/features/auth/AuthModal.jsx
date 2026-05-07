@@ -6,6 +6,7 @@ import { Input } from '@ui/input';
 import { Label } from '@ui/label';
 import { X } from 'lucide-react';
 import { Spinner } from '@ui/skeleton';
+import { translateAuthError } from '@/utils/authErrors';
 
 function FieldError({ message }) {
   if (!message) return null;
@@ -78,7 +79,7 @@ export default function AuthModal({ isOpen, onClose }) {
       resetFields();
       onClose();
     } catch (err) {
-      setError(err.body?.error || t('auth.loginError'));
+      setError(translateAuthError(t, err, 'login'));
     } finally {
       setLoading(false);
     }
@@ -100,11 +101,7 @@ export default function AuthModal({ isOpen, onClose }) {
       resetFields();
       onClose();
     } catch (err) {
-      if (err.status === 409) {
-        setError(t('auth.usernameTaken'));
-      } else {
-        setError(err.body?.error || t('auth.registerError'));
-      }
+      setError(translateAuthError(t, err, 'register'));
     } finally {
       setLoading(false);
     }

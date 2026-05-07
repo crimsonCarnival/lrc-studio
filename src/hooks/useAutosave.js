@@ -1,5 +1,6 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { uploads, projects, getAccessToken } from '@/api';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 
 const PROJECT_KEY = 'lrc-syncer-project';
 const SHARED_PROJECT_KEY = 'lrc-syncer-shared-project';
@@ -37,6 +38,7 @@ export function useAutosave({
   isProjectLoading,
   onSaveSuccess,
 }) {
+  const { executeRecaptcha } = useGoogleReCaptcha();
   // Keep a ref-snapshot of volatile values to avoid stale closures inside the
   // setInterval / doAutoSave callback.
   // IMPORTANT: isProjectLoading is stored here so doAutoSave always reads the
@@ -45,8 +47,8 @@ export function useAutosave({
   useEffect(() => {
     autoSaveRef.current = {
       pendingProject,
-      enabled: settings.advanced.autoSave.enabled,
-      timeInterval: settings.advanced.autoSave.timeInterval ?? 30,
+      enabled: settings.advanced?.autoSave?.enabled ?? false,
+      timeInterval: settings.advanced?.autoSave?.timeInterval ?? 30,
       buildPayload: buildProjectPayload,
       isSharedProject,
       isProjectLoading,
@@ -196,8 +198,10 @@ export function useAutosave({
       };
       if (uploadIdToSave) createData.uploadId = uploadIdToSave;
 
-      projects.create(createData)
-        .then(({ projectId }) => {
+      const performCreate = async () => {
+        try {
+          const recaptchaToken = executeRecaptcha ? await executeRecaptcha('autosave_create') : undefined;
+          const { projectId } = await projects.create({ ...createData, recaptchaToken });
           setActiveProjectId(projectId);
           activeProjectIdRef.current = projectId;
           updateServerSnapshot({
@@ -212,11 +216,12 @@ export function useAutosave({
             localStorage.setItem(ACTIVE_PROJECT_ID_KEY, projectId);
           } catch { /* ignore */ }
           onSaveSuccess?.();
-        })
-        .catch(() => { })
-        .finally(() => {
+        } catch { }
+        finally {
           isCreatingProjectRef.current = false;
-        });
+        }
+      };
+      performCreate();
     }
 
     lastSaveTimeRef.current = Date.now();
@@ -245,6 +250,7 @@ export function useAutosave({
     updateServerSnapshot,
     setActiveProjectId,
     setIsAutosaving,
+    executeRecaptcha,
   ]);
 
   // ——— Action-based trigger (every 5 line edits) ———
@@ -263,11 +269,11 @@ export function useAutosave({
 
   // ——— Time-based trigger ———
   useEffect(() => {
-    if (!settings.advanced.autoSave.enabled) return;
+    if (!settings.advanced?.autoSave?.enabled) return;
     const intervalMs = Math.max(10, settings.advanced.autoSave.timeInterval ?? 30) * 1000;
     const id = setInterval(() => { doAutoSave(); }, intervalMs);
     return () => clearInterval(id);
-  }, [settings.advanced.autoSave.enabled, settings.advanced.autoSave.timeInterval, doAutoSave]);
+  }, [settings.advanced?.autoSave?.enabled, settings.advanced?.autoSave?.timeInterval, doAutoSave]);
 
   return { doAutoSave };
 }

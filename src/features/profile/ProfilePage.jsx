@@ -82,7 +82,7 @@ export default function ProfilePage() {
               <div className="flex items-center justify-between text-xs">
                 <span className="text-zinc-500">{t('profile.memberSince') || 'Joined'}</span>
                 <span className="text-zinc-300 font-medium">
-                  {user?.createdAt ? new Date(user.createdAt).toLocaleDateString(i18n.language, { dateStyle: 'long' }) : '---'}
+                  {user?.createdAt ? new Date(user.createdAt).toLocaleDateString(i18n.resolvedLanguage || i18n.language, { dateStyle: 'long' }) : '---'}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">

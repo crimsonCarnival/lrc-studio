@@ -64,7 +64,7 @@ export default function useSpotifyPlayer({
       // If already connected, reuse. Otherwise create a new player.
       if (!playerRef.current) {
         const player = new window.Spotify.Player({
-          name: 'Lyrics Syncer',
+          name: 'LRC Studio',
           getOAuthToken: async (cb) => {
             try {
               const { accessToken } = await spotifyApi.getToken();

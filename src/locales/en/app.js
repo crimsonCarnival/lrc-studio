@@ -1,5 +1,15 @@
 export default {
-  "name": "Syncify",
+  "name": "LRC Studio",
+  "titles": {
+    "home": "Home",
+    "newProject": "New Project",
+    "library": "Library",
+    "uploads": "Uploads",
+    "profile": "Profile",
+    "auth": "Authentication",
+    "admin": "Admin Dashboard",
+    "shared": "Shared Project"
+  },
   "shareProject": "Share",
   "focusMode": {
     "default": "Default",

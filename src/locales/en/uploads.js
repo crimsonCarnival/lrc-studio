@@ -1,6 +1,7 @@
 export default {
   "title": "Uploads",
-  "count": "{{count}} files",
+  "count_one": "{{count}} file",
+  "count_other": "{{count}} files",
   "empty": "No uploads yet",
   "emptyHint": "Upload audio files or link YouTube URLs to see them here",
   "untitled": "Untitled",

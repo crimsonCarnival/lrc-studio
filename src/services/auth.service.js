@@ -1,17 +1,26 @@
 import { request } from './api.client.js';
+import { gqlRequest } from './graphql.client.js';
 
 export const authService = {
-  async register({ username, email, password }) {
+  // ── Kept as REST — involves token issuance, cookies, reCAPTCHA ──
+  async register({ username, email, password, recaptchaToken }) {
     return request('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ username, email, password }),
+      body: JSON.stringify({ username, email, password, recaptchaToken }),
     });
   },
 
-  async login({ identifier, password }) {
+  async checkIdentifier(identifier) {
+    return request('/auth/check-identifier', {
+      method: 'POST',
+      body: JSON.stringify({ identifier }),
+    });
+  },
+
+  async login({ identifier, password, recaptchaToken }) {
     return request('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ identifier, password }),
+      body: JSON.stringify({ identifier, password, recaptchaToken }),
     });
   },
 
@@ -19,17 +28,6 @@ export const authService = {
     return request('/auth/refresh', {
       method: 'POST',
       body: JSON.stringify({ refreshToken }),
-    });
-  },
-
-  async me() {
-    return request('/auth/me');
-  },
-
-  async updateProfile(data) {
-    return request('/auth/profile', {
-      method: 'PATCH',
-      body: JSON.stringify(data),
     });
   },
 
@@ -41,8 +39,42 @@ export const authService = {
   },
 
   async clearUnbanMessage() {
-    return request('/auth/clear-unban-message', {
-      method: 'POST',
-    });
+    return request('/auth/clear-unban-message', { method: 'POST' });
+  },
+
+  // ── Migrated to GraphQL ──
+  async me() {
+    const data = await gqlRequest(`
+      query Me {
+        me {
+          id
+          username
+          email
+          avatarUrl
+          bio
+          isVerified
+          isBanned
+          role
+          createdAt
+          spotify { connected spotifyId isPremium profilePictureUrl }
+        }
+      }
+    `);
+    return data.me;
+  },
+
+  async updateProfile(input) {
+    const data = await gqlRequest(`
+      mutation UpdateProfile($input: UpdateProfileInput!) {
+        updateProfile(input: $input) {
+          id
+          username
+          email
+          avatarUrl
+          bio
+        }
+      }
+    `, { input });
+    return data.updateProfile;
   },
 };

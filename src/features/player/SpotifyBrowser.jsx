@@ -306,10 +306,10 @@ export default function SpotifyBrowser({ onSelectTrack }) {
     try {
       const result = await spotifyApi.createUpload(`spotify:track:${track.trackId}`);
       onSelectTrack({
-        trackId: track.trackId,
+        ...result,
+        trackId: track.trackId, // Preserve the original Spotify track ID
         title: track.name,
         artist: track.artist,
-        ...result,
       });
     } catch {
       // Still pass the track info even if upload creation fails
@@ -532,7 +532,7 @@ export default function SpotifyBrowser({ onSelectTrack }) {
       )}
 
       {/* Content */}
-      <div className="max-h-[250px] overflow-y-auto space-y-0.5 settings-scroll">
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-0.5 settings-scroll">
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-8">
             <Loader2 className="w-4 h-4 text-green-500 animate-spin" />

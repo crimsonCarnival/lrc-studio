@@ -1,10 +1,13 @@
 import { request } from './api.client.js';
+import { gqlRequest } from './graphql.client.js';
+
+// ── Cloudinary Uploads (must stay REST — uses multipart + reCAPTCHA signing) ──
 
 export const uploadsService = {
-  async getSignature({ fileName, fileSize }) {
+  async getSignature({ fileName, fileSize, recaptchaToken }) {
     return request('/uploads/signature', {
       method: 'POST',
-      body: JSON.stringify({ fileName, fileSize }),
+      body: JSON.stringify({ fileName, fileSize, recaptchaToken }),
     });
   },
 
@@ -12,19 +15,16 @@ export const uploadsService = {
    * Upload a file to Cloudinary using a server-signed request.
    * Returns { secure_url, public_id, duration }.
    */
-  async uploadToCloudinary(file) {
-    // 1. Get signature from our server
+  async uploadToCloudinary(file, recaptchaToken) {
     const { signature, timestamp, cloudName, apiKey, folder, resourceType } =
-      await this.getSignature({ fileName: file.name, fileSize: file.size });
+      await this.getSignature({ fileName: file.name, fileSize: file.size, recaptchaToken });
 
-    // 2. Upload directly to Cloudinary
     const formData = new FormData();
     formData.append('file', file);
     formData.append('api_key', apiKey);
     formData.append('timestamp', timestamp);
     formData.append('signature', signature);
     formData.append('folder', folder);
-    // NOTE: resource_type is a URL path param, not a form field
 
     const res = await fetch(
       `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/${resourceType}/upload`,
@@ -44,57 +44,23 @@ export const uploadsService = {
     };
   },
 
-  // ── Media library ──
-
-  async listMedia({ limit = 50, offset = 0 } = {}) {
-    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-    return request(`/uploads/media?${params.toString()}`);
-  },
-
-  async saveMedia(data) {
-    return request('/uploads/media', {
+  async getAvatarSignature(file, recaptchaToken) {
+    return request('/uploads/avatar-signature', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ fileSize: file.size, recaptchaToken }),
     });
   },
 
-  async getMedia(id) {
-    return request(`/uploads/media/${encodeURIComponent(id)}`);
-  },
-
-  async deleteMedia(id) {
-    return request(`/uploads/media/${encodeURIComponent(id)}`, {
-      method: 'DELETE',
-    });
-  },
-
-  async updateMedia(id, data) {
-    return request(`/uploads/media/${encodeURIComponent(id)}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-  },
-
-  // ── Avatar & Cover ──
-
-  async getAvatarSignature() {
-    return request('/uploads/avatar-signature', { method: 'POST' });
-  },
-
-  async uploadAvatar(file) {
-    const result = await this.uploadImage(file, this.getAvatarSignature.bind(this));
+  async uploadAvatar(file, recaptchaToken) {
+    const result = await this.uploadImage(file, () => this.getAvatarSignature(file, recaptchaToken));
     return {
       url: result.secure_url,
       publicId: result.public_id,
     };
   },
 
-  /**
-   * Upload an image to Cloudinary (for avatars).
-   * Returns { secure_url, public_id }.
-   */
   async uploadImage(file, signatureGetter) {
-    const { signature, timestamp, cloudName, apiKey, folder, resourceType } =
+    const { signature, timestamp, cloudName, apiKey, folder, resourceType, transformation } =
       await signatureGetter();
 
     const formData = new FormData();
@@ -103,6 +69,7 @@ export const uploadsService = {
     formData.append('timestamp', timestamp);
     formData.append('signature', signature);
     formData.append('folder', folder);
+    if (transformation) formData.append('transformation', transformation);
 
     const res = await fetch(
       `https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudName)}/${resourceType}/upload`,
@@ -115,9 +82,89 @@ export const uploadsService = {
     }
 
     const data = await res.json();
-    return {
-      secure_url: data.secure_url,
-      public_id: data.public_id,
-    };
+    return { secure_url: data.secure_url, public_id: data.public_id };
+  },
+
+  // ── Media Library (migrated to GraphQL) ──
+
+  async listMedia({ limit = 50, offset = 0 } = {}) {
+    const data = await gqlRequest(`
+      query ListMedia($limit: Int, $offset: Int) {
+        uploads(limit: $limit, offset: $offset) {
+          id
+          source
+          fileName
+          title
+          artist
+          duration
+          cloudinaryUrl
+          publicId
+          youtubeUrl
+          spotifyTrackId
+          createdAt
+          updatedAt
+        }
+      }
+    `, { limit, offset });
+    return data.uploads;
+  },
+
+  async getMedia(id) {
+    const data = await gqlRequest(`
+      query GetMedia($id: ID!) {
+        upload(id: $id) {
+          id
+          source
+          fileName
+          title
+          artist
+          duration
+          cloudinaryUrl
+          publicId
+          youtubeUrl
+          spotifyTrackId
+          createdAt
+          updatedAt
+          projects {
+            id
+            projectId
+            title
+            updatedAt
+          }
+        }
+      }
+    `, { id });
+    return data.upload;
+  },
+
+  async saveMedia(input) {
+    const data = await gqlRequest(`
+      mutation SaveMedia($input: SaveMediaInput!) {
+        saveMedia(input: $input) {
+          id
+          source
+          fileName
+          title
+        }
+      }
+    `, { input });
+    return data.saveMedia;
+  },
+
+  async deleteMedia(id) {
+    const data = await gqlRequest(`
+      mutation DeleteMedia($id: ID!) {
+        deleteMedia(id: $id)
+      }
+    `, { id });
+    return data.deleteMedia;
+  },
+
+  // updateMedia has no GQL equivalent yet — keep REST
+  async updateMedia(id, patchData) {
+    return request(`/uploads/media/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patchData),
+    });
   },
 };

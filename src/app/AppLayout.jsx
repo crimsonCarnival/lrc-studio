@@ -83,7 +83,7 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
           : (playerTop && isReady && isPlayerMounted) ? 'pt-[200px] lg:pt-[216px]'
           : 'pt-24 lg:pt-[104px]'
         }
-        ${(isPlayerMounted && !playerTop) ? 'max-lg:pb-[200px] lg:pb-[128px]' : 'pb-20 lg:pb-6'}
+        ${(isPlayerMounted && !playerTop) ? 'max-lg:pb-[240px] lg:pb-[160px]' : 'pb-20 lg:pb-6'}
       `}
         style={(isPlayerMounted && !playerTop && window.innerWidth >= 1024) ? { marginBottom: '24px' } : undefined}
       >

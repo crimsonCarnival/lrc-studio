@@ -1,4 +1,15 @@
 export default {
+  "loginWelcome": "Welcome to <0>LRC Studio</0>",
+  "loginWelcomeBack": "Welcome back, <0>{{name}}</0>!",
+  "loginSubtitle": "Enter your username or email to continue.",
+  "enterPassword": "Enter your password.",
+  "notYou": "Not you? Change account",
+  "rememberMe": "Remember me",
+  "continue": "Continue",
+  "registerWelcome": "<0>Create your account</0>",
+  "registerSubtitle": "User Information.",
+  "optional": "(optional)",
+  "securePassword": "Secure password",
   "login": "Log in",
   "register": "Sign up",
   "logout": "Log out",
@@ -30,5 +41,23 @@ export default {
   "registrationBlockedTitle": "Registration Restricted",
   "registrationBlockedMessage": "Registration is currently unavailable.",
   "registrationBlockedDetail": "Registration is currently unavailable, check back later.",
-  "securityNotice": "Registration is currently unavailable, check back later."
+  "securityNotice": "Registration is currently unavailable, check back later.",
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "invalid_credentials": "Incorrect username/email or password. Please check your details and try again.",
+    "identifier_not_found": "We couldn't find an account with that username or email.",
+    "username_not_found": "We couldn't find an account with that username.",
+    "email_not_found": "We couldn't find an account with that email address.",
+    "ip_banned_login": "Your network has been blocked due to a policy violation. Contact support if you believe this is an error.",
+    "ip_banned_register": "Registration from this network is not permitted due to previous violations.",
+    "ip_linked": "Registration from this network is currently restricted.",
+    "device_banned": "Your device has been blocked due to a previous policy violation. Contact support if you believe this is an error.",
+    "account_banned": "Your account has been suspended. You may submit an appeal from the login page.",
+    "account_deleted": "This account no longer exists.",
+    "register_account_restricted": "Registration failed. This account or email is restricted.",
+    "username_taken": "Username or email is already taken.",
+    "token_expired": "Your session has expired. Please log in again.",
+    "user_not_found": "Account not found.",
+    "appeal_already_pending": "You already have a pending appeal. Please wait for a response."
+  }
 };

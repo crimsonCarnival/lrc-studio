@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { projects, uploads } from '@/api';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import { useSettings } from '../contexts/useSettings';
 
 const SHARED_PROJECT_KEY = 'lrc-syncer-shared-project';
@@ -58,6 +59,7 @@ export function useSharedProject({
   projectSpotifyTrackId,
 }) {
   const { t } = useTranslation();
+  const { executeRecaptcha } = useGoogleReCaptcha();
   const { updateSetting } = useSettings();
 
   const [isSharedProject, setIsSharedProject] = useState(false);
@@ -164,13 +166,13 @@ export function useSharedProject({
       };
       if (uploadIdToSave) projectData.uploadId = uploadIdToSave;
 
-      let sharedId = activeProjectIdRef.current;
       if (sharedId) {
         try { await projects.update(sharedId, projectData); }
         catch (err) { console.error(err); sharedId = null; }
       }
       if (!sharedId) {
-        const result = await projects.create(projectData);
+        const recaptchaToken = executeRecaptcha ? await executeRecaptcha('share_project') : undefined;
+        const result = await projects.create({ ...projectData, recaptchaToken });
         sharedId = result.projectId;
         setActiveProjectId(sharedId);
         activeProjectIdRef.current = sharedId;
@@ -190,7 +192,7 @@ export function useSharedProject({
     } catch {
       toast.error(t('project.shareFailed') || 'Could not generate share link.');
     }
-  }, [lines, editorMode, projectYtUrl, syncMode, mediaTitle, cloudinaryAudio, duration, t, projectMetadata, activeProjectIdRef, setActiveProjectId, setShareModalState]);
+  }, [lines, editorMode, projectYtUrl, syncMode, mediaTitle, cloudinaryAudio, duration, t, projectMetadata, activeProjectIdRef, setActiveProjectId, setShareModalState, executeRecaptcha]);
 
   return {
     isSharedProject, setIsSharedProject,

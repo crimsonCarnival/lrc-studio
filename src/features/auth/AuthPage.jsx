@@ -1,314 +1,565 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useTranslation, Trans } from 'react-i18next';
 import { useAuthContext } from '@/contexts/useAuthContext';
 import { Button } from '@ui/button';
 import { Input } from '@ui/input';
 import { Label } from '@ui/label';
-import { Music2, Eye, EyeOff, Lightbulb } from 'lucide-react';
-import { Spinner } from '@ui/skeleton';
+import { Checkbox } from '@ui/checkbox';
+import { Music2, Eye, EyeOff, ArrowRight, ArrowLeft, Lightbulb, Loader2 } from 'lucide-react';
 import RegistrationBlockedModal from './RegistrationBlockedModal';
+import { translateAuthError } from '@/utils/authErrors';
+import { auth } from '@/api';
+import { usePageTitle } from '@/hooks/usePageTitle';
+import { useThemeSync } from '@/hooks/useThemeSync';
+import { FloatingInput } from '@ui/floating-input';
+
+// ─── Sub-components ────────────────────────────────────────────────────────
+const REMEMBER_ME_KEY = 'lrc-studio-remember-me';
 
 function FieldError({ message }) {
   if (!message) return null;
-  return <p className="text-[11px] text-red-400 font-medium mt-0.5">{message}</p>;
+  return <p className="text-[11px] text-destructive font-medium mt-1 flex items-center gap-1">{message}</p>;
 }
 
-export default function AuthPage() {
-  const { t } = useTranslation();
-  const { login, register } = useAuthContext();
-  const [tab, setTab] = useState('login');
+function ErrorBanner({ message }) {
+  if (!message) return null;
+  return (
+    <div className="px-4 py-3 bg-destructive/10 border border-destructive/25 rounded-xl text-xs text-destructive font-medium leading-relaxed">
+      {message}
+    </div>
+  );
+}
+
+function AvatarBadge({ username, avatarUrl, size = 'md' }) {
+  const sizeClass = size === 'lg' ? 'w-16 h-16 text-xl' : 'w-10 h-10 text-sm';
+  const initial = (username || '?')[0].toUpperCase();
+
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={username}
+        className={`${sizeClass} rounded-full object-cover ring-2 ring-primary/30`}
+      />
+    );
+  }
+  return (
+    <div className={`${sizeClass} rounded-full bg-gradient-to-br from-primary/80 to-accent-purple flex items-center justify-center font-bold text-zinc-950 ring-2 ring-primary/20`}>
+      {initial}
+    </div>
+  );
+}
+
+// ─── Background ────────────────────────────────────────────────────────────
+
+function Background() {
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden">
+      <div className="absolute inset-0 bg-zinc-950" />
+      {/* Noise texture */}
+      <div className="absolute inset-0 opacity-[0.018]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.75%22 numOctaves=%224%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")' }} />
+      {/* Gradient orbs */}
+      <div className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-primary/8 rounded-full blur-[120px]" />
+      <div className="absolute top-1/2 -right-48 w-[400px] h-[400px] bg-accent-purple/6 rounded-full blur-[100px]" />
+      <div className="absolute -bottom-48 left-1/4 w-[500px] h-[500px] bg-accent-blue/5 rounded-full blur-[120px]" />
+    </div>
+  );
+}
+
+// ─── Tip footer ────────────────────────────────────────────────────────────
+
+function TipFooter({ t, seed }) {
+  const getRandStr = (key) => {
+    const arr = t(key, { returnObjects: true });
+    if (Array.isArray(arr) && arr.length > 0) return arr[seed % arr.length];
+    return t(key);
+  };
+
+  return (
+    <div className="flex items-center justify-center gap-2 text-xs text-zinc-600 mt-6 animate-fade-in" style={{ animationDelay: '400ms' }}>
+      <Lightbulb className="w-3.5 h-3.5 text-warning/60 shrink-0" />
+      <p>{getRandStr('home.tips')}</p>
+    </div>
+  );
+}
+
+// ─── Login Step 1 — Identifier ─────────────────────────────────────────────
+
+function LoginIdentifierStep({ t, onNext, onSwitchToRegister }) {
+  const [rememberedIdentifier] = useState(() => {
+    try {
+      return localStorage.getItem(REMEMBER_ME_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const [identifier, setIdentifier] = useState(rememberedIdentifier);
+  const [rememberMe, setRememberMe] = useState(!!rememberedIdentifier);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [showBlockedModal, setShowBlockedModal] = useState(false);
-  const [blockedMessage, setBlockedMessage] = useState('');
+  const inputRef = useRef(null);
 
-  const [randomTipSeed, setRandomTipSeed] = useState(0);
   useEffect(() => {
-    setRandomTipSeed(Math.floor(Math.random() * 1000));
+    inputRef.current?.focus();
   }, []);
 
-  const getRandStr = useCallback((key, seedVal, options = {}) => {
-    const arr = t(key, { returnObjects: true, ...options });
-    if (Array.isArray(arr) && arr.length > 0) {
-      return arr[seedVal % arr.length];
-    }
-    return t(key, options);
-  }, [t]);
-
-  // Login fields
-  const [identifier, setIdentifier] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-
-  // Register fields
-  const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
-  const [regPassword, setRegPassword] = useState('');
-
-  const [showLoginPassword, setShowLoginPassword] = useState(false);
-  const [showRegPassword, setShowRegPassword] = useState(false);
-
-  const switchTab = (newTab) => {
-    setTab(newTab);
-    setError('');
-    setFieldErrors({});
-  };
-
-  const validateLogin = () => {
-    const errors = {};
-    if (!identifier.trim()) errors.identifier = t('auth.validation.fieldRequired');
-    if (!loginPassword) errors.loginPassword = t('auth.validation.fieldRequired');
-    else if (loginPassword.length < 8) errors.loginPassword = t('auth.validation.passwordMinLength');
-    return errors;
-  };
-
-  const validateRegister = () => {
-    const errors = {};
-    if (username && username.length < 3) errors.username = t('auth.validation.usernameMinLength');
-    if (username && !/^[a-zA-Z0-9_-]+$/.test(username)) errors.username = t('auth.validation.usernamePattern');
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = t('auth.validation.emailInvalid');
-    if (!username && !email) errors.username = t('auth.validation.fieldRequired');
-    if (!regPassword) errors.regPassword = t('auth.validation.fieldRequired');
-    else if (regPassword.length < 8) errors.regPassword = t('auth.validation.passwordMinLength');
-    return errors;
-  };
-
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const errors = validateLogin();
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (!identifier.trim()) {
+      setError(t('auth.validation.fieldRequired'));
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      await login({ identifier, password: loginPassword });
-    } catch (err) {
-      if (err.status === 429) setError(t('auth.tooManyAttempts'));
-      else setError(t('auth.loginError'));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    const errors = validateRegister();
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-    setError('');
-    setLoading(true);
-    try {
-      await register({
-        username: username || undefined,
-        email: email || undefined,
-        password: regPassword,
-      });
-    } catch (err) {
-      if (err.status === 409) setError(t('auth.usernameTaken'));
-      else if (err.status === 403) {
-        setBlockedMessage(err.message || t('auth.registrationBlockedMessage'));
-        setShowBlockedModal(true);
+      const result = await auth.checkIdentifier(identifier.trim());
+      if (rememberMe) {
+        localStorage.setItem(REMEMBER_ME_KEY, identifier.trim());
+      } else {
+        localStorage.removeItem(REMEMBER_ME_KEY);
       }
-      else if (err.status === 400) setError(t('auth.validationError'));
-      else if (err.status === 429) setError(t('auth.tooManyAttempts'));
-      else setError(t('auth.registerError'));
+      onNext({ identifier: identifier.trim(), ...result });
+    } catch (err) {
+      setError(translateAuthError(t, err, 'login', identifier.trim()));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center relative overflow-hidden">
-      {/* Background effects */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }} />
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute top-1/3 -right-40 w-80 h-80 bg-accent-purple/5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 left-1/3 w-96 h-96 bg-accent-blue/5 rounded-full blur-3xl" />
+    <div className="animate-fade-in">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-zinc-100 tracking-tight font-sans">
+          {rememberedIdentifier ? (
+            <Trans 
+              i18nKey="auth.loginWelcomeBack" 
+              values={{ name: rememberedIdentifier }}
+              components={[<span key="0" className="font-heading" />]}
+            />
+          ) : (
+            <Trans 
+              i18nKey="auth.loginWelcome" 
+              components={[<span key="0" className="font-heading" />]}
+            />
+          )}
+        </h1>
+        <p className="text-sm text-zinc-500 mt-1.5 font-sans">
+          {t('auth.loginSubtitle', 'Enter your username or email to continue.')}
+        </p>
       </div>
 
-      <div className="relative z-raised w-full max-w-sm mx-auto px-4">
-        {/* Logo + title */}
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-accent-purple flex items-center justify-center shadow-lg shadow-primary/20 mb-4">
-            <Music2 className="w-7 h-7 text-white" strokeWidth={2} />
-          </div>
-          <h1 className="text-2xl font-bold text-zinc-100 tracking-tight">{t('app.name')}</h1>
-          <p className="text-sm text-zinc-500 mt-1">{t('auth.tagline')}</p>
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <FloatingInput
+            ref={inputRef}
+            id="auth-identifier"
+            type="text"
+            label={t('auth.usernameOrEmail')}
+            value={identifier}
+            onChange={(e) => { setIdentifier(e.target.value); setError(''); }}
+            autoComplete="username"
+            error={!!error}
+          />
+          <FieldError message={error} />
         </div>
 
-        {/* Card */}
-        <div className="bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-elevated">
-          {/* Tabs */}
-          <div className="flex border-b border-zinc-700/60 px-6 pt-4">
-            <button
-              onClick={() => switchTab('login')}
-              className={`flex-1 pb-3 text-sm font-semibold transition-colors border-b-2 ${
-                tab === 'login'
-                  ? 'text-primary border-primary'
-                  : 'text-zinc-400 border-transparent hover:text-zinc-200'
-              }`}
-            >
-              {t('auth.login')}
-            </button>
-            <button
-              onClick={() => switchTab('register')}
-              className={`flex-1 pb-3 text-sm font-semibold transition-colors border-b-2 ${
-                tab === 'register'
-                  ? 'text-primary border-primary'
-                  : 'text-zinc-400 border-transparent hover:text-zinc-200'
-              }`}
-            >
-              {t('auth.register')}
-            </button>
-          </div>
-
-          <div className="p-6">
-            {error && (
-              <div className="mb-4 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-400 font-medium">
-                {error}
-              </div>
-            )}
-
-            {tab === 'login' ? (
-              <form onSubmit={handleLogin} noValidate className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="auth-identifier" className="text-xs font-semibold text-zinc-300">
-                    {t('auth.usernameOrEmail')}
-                  </Label>
-                  <Input
-                    id="auth-identifier"
-                    type="text"
-                    value={identifier}
-                    onChange={(e) => { setIdentifier(e.target.value); setFieldErrors((p) => ({ ...p, identifier: undefined })); }}
-                    autoFocus
-                    autoComplete="username"
-                    className={`bg-zinc-800/80 ${fieldErrors.identifier ? 'border-red-500/60' : 'border-zinc-700/60'}`}
-                  />
-                  <FieldError message={fieldErrors.identifier} />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="auth-password" className="text-xs font-semibold text-zinc-300">
-                    {t('auth.password')}
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="auth-password"
-                      type={showLoginPassword ? "text" : "password"}
-                      value={loginPassword}
-                      onChange={(e) => { setLoginPassword(e.target.value); setFieldErrors((p) => ({ ...p, loginPassword: undefined })); }}
-                      autoComplete="current-password"
-                      className={`bg-zinc-800/80 pr-10 ${fieldErrors.loginPassword ? 'border-red-500/60' : 'border-zinc-700/60'}`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowLoginPassword(!showLoginPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
-                    >
-                      {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  <FieldError message={fieldErrors.loginPassword} />
-                </div>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-primary hover:bg-primary-dim text-zinc-950 font-semibold text-sm rounded-xl h-10 mt-1"
-                >
-                  {loading ? <Spinner size={18} /> : t('auth.loginAction')}
-                </Button>
-                <p className="text-xs text-zinc-500 text-center">
-                  {t('auth.noAccount')}{' '}
-                  <button type="button" onClick={() => switchTab('register')} className="text-primary hover:underline font-medium">
-                    {t('auth.register')}
-                  </button>
-                </p>
-              </form>
-            ) : (
-              <form onSubmit={handleRegister} noValidate className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="auth-username" className="text-xs font-semibold text-zinc-300">
-                    {t('auth.username')}
-                  </Label>
-                  <Input
-                    id="auth-username"
-                    type="text"
-                    value={username}
-                    onChange={(e) => { setUsername(e.target.value); setFieldErrors((p) => ({ ...p, username: undefined })); }}
-                    autoComplete="username"
-                    maxLength={30}
-                    className={`bg-zinc-800/80 ${fieldErrors.username ? 'border-red-500/60' : 'border-zinc-700/60'}`}
-                  />
-                  <FieldError message={fieldErrors.username} />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="auth-email" className="text-xs font-semibold text-zinc-300">
-                    {t('auth.email')}
-                  </Label>
-                  <Input
-                    id="auth-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => { setEmail(e.target.value); setFieldErrors((p) => ({ ...p, email: undefined })); }}
-                    autoComplete="email"
-                    className={`bg-zinc-800/80 ${fieldErrors.email ? 'border-red-500/60' : 'border-zinc-700/60'}`}
-                  />
-                  <FieldError message={fieldErrors.email} />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="auth-reg-password" className="text-xs font-semibold text-zinc-300">
-                    {t('auth.password')}
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="auth-reg-password"
-                      type={showRegPassword ? "text" : "password"}
-                      value={regPassword}
-                      onChange={(e) => { setRegPassword(e.target.value); setFieldErrors((p) => ({ ...p, regPassword: undefined })); }}
-                      autoComplete="new-password"
-                      className={`bg-zinc-800/80 pr-10 ${fieldErrors.regPassword ? 'border-red-500/60' : 'border-zinc-700/60'}`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowRegPassword(!showRegPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
-                    >
-                      {showRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  <FieldError message={fieldErrors.regPassword} />
-                </div>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-primary hover:bg-primary-dim text-zinc-950 font-semibold text-sm rounded-xl h-10 mt-1"
-                >
-                  {loading ? <Spinner size={18} /> : t('auth.registerAction')}
-                </Button>
-                <p className="text-xs text-zinc-500 text-center">
-                  {t('auth.hasAccount')}{' '}
-                  <button type="button" onClick={() => switchTab('login')} className="text-primary hover:underline font-medium">
-                    {t('auth.login')}
-                  </button>
-                </p>
-              </form>
-            )}
-          </div>
+        <div className="flex items-center gap-2 mb-2 animate-fade-in" style={{ animationDelay: '100ms' }}>
+          <Checkbox 
+            id="remember-me" 
+            checked={rememberMe} 
+            onCheckedChange={(checked) => setRememberMe(!!checked)}
+            className="border-zinc-700 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+          />
+          <Label 
+            htmlFor="remember-me" 
+            className="text-xs font-medium text-zinc-500 cursor-pointer select-none hover:text-zinc-300 transition-colors"
+          >
+            {t('auth.rememberMe')}
+          </Label>
         </div>
-        
-        {/* Tips Section */}
-        <div className="mt-8 py-4 shrink-0">
-          <div className="flex items-center justify-center gap-2 text-sm text-zinc-500 animate-fade-in w-full text-center" style={{ animationDelay: '300ms' }}>
-            <Lightbulb className="w-4 h-4 text-amber-400/80 shrink-0" />
-            <p>{getRandStr('home.tips', randomTipSeed)}</p>
-          </div>
+
+        <Button
+          type="submit"
+          disabled={loading || !identifier.trim()}
+          className="h-11 bg-primary hover:bg-primary-dim text-zinc-950 font-bold text-sm rounded-xl gap-2 disabled:opacity-40 transition-all duration-200 mt-1"
+        >
+          {loading
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : <>{t('auth.continue', 'Continue')} <ArrowRight className="w-4 h-4" /></>
+          }
+        </Button>
+
+        <p className="text-xs text-zinc-500 text-center">
+          {t('auth.noAccount')}{' '}
+          <button type="button" onClick={onSwitchToRegister} className="text-primary hover:text-primary-dim hover:underline font-semibold transition-colors">
+            {t('auth.register')}
+          </button>
+        </p>
+      </form>
+    </div>
+  );
+}
+
+// ─── Login Step 2 — Password ───────────────────────────────────────────────
+
+function LoginPasswordStep({ t, identifierData, onBack, onLogin }) {
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!password) {
+      setError(t('auth.validation.fieldRequired'));
+      return;
+    }
+    if (password.length < 8) {
+      setError(t('auth.validation.passwordMinLength'));
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      await onLogin({ identifier: identifierData.identifier, password });
+    } catch (err) {
+      setError(translateAuthError(t, err, 'login', identifierData.identifier));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="animate-fade-in">
+      {/* User persona card */}
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-3 mb-8 group w-full text-left"
+      >
+        <AvatarBadge username={identifierData.username} avatarUrl={identifierData.avatarUrl} size="md" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-zinc-200 truncate">
+            {identifierData.username || identifierData.identifier}
+          </p>
+          <p className="text-xs text-zinc-500 flex items-center gap-1 group-hover:text-primary transition-colors">
+            <ArrowLeft className="w-3 h-3" />
+            {t('auth.notYou', 'Not you? Change account')}
+          </p>
         </div>
+      </button>
+
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-zinc-100 tracking-tight font-heading">
+          {t('auth.enterPassword', 'Enter your password.')}
+        </h1>
       </div>
+
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <div className="relative">
+            <FloatingInput
+              ref={inputRef}
+              id="auth-password"
+              type={showPassword ? 'text' : 'password'}
+              label={t('auth.password')}
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setError(''); }}
+              autoComplete="current-password"
+              error={!!error}
+              className="pr-11"
+            />
+            {password && (
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-300 transition-colors rounded-lg z-10"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            )}
+          </div>
+          <FieldError message={error} />
+        </div>
+
+        <Button
+          type="submit"
+          disabled={loading || !password}
+          className="h-11 bg-primary hover:bg-primary-dim text-zinc-950 font-bold text-sm rounded-xl disabled:opacity-40 transition-all duration-200 mt-1"
+        >
+          {loading
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : t('auth.loginAction')
+          }
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+// ─── Register Form ─────────────────────────────────────────────────────────
+
+function RegisterForm({ t, onSwitchToLogin, onRegister }) {
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [showBlockedModal, setShowBlockedModal] = useState(false);
+  const [blockedMessage, setBlockedMessage] = useState('');
+
+  const validate = () => {
+    const errs = {};
+    if (username && username.length < 3) errs.username = t('auth.validation.usernameMinLength');
+    if (username && !/^[a-zA-Z0-9_-]+$/.test(username)) errs.username = t('auth.validation.usernamePattern');
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = t('auth.validation.emailInvalid');
+    if (!username && !email) errs.username = t('auth.validation.fieldRequired');
+    if (!password) errs.password = t('auth.validation.fieldRequired');
+    else if (password.length < 8) errs.password = t('auth.validation.passwordMinLength');
+    return errs;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const errs = validate();
+    setFieldErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+    setError('');
+    setLoading(true);
+    try {
+      await onRegister({ username: username || undefined, email: email || undefined, password });
+    } catch (err) {
+      if (err.status === 403) {
+        setBlockedMessage(translateAuthError(t, err, 'register', username || email));
+        setShowBlockedModal(true);
+      } else {
+        setError(translateAuthError(t, err, 'register', username || email));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="animate-fade-in font-sans">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-zinc-100 tracking-tight font-sans">
+          <Trans 
+            i18nKey="auth.registerWelcome" 
+            components={[<span key="0" className="font-heading" />]}
+          />
+        </h1>
+        <p className="text-sm text-zinc-500 mt-1.5">
+          {t('auth.registerSubtitle', 'Username or email — at least one is required.')}
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-3">
+        <ErrorBanner message={error} />
+
+        {/* Username */}
+        <div className="flex flex-col gap-1.5">
+          <FloatingInput
+            id="reg-username"
+            type="text"
+            label={t('auth.username')}
+            value={username}
+            onChange={(e) => { setUsername(e.target.value); setFieldErrors(p => ({ ...p, username: undefined })); }}
+            autoComplete="username"
+            maxLength={30}
+            error={!!fieldErrors.username}
+          />
+          <FieldError message={fieldErrors.username} />
+        </div>
+
+        {/* Email */}
+        <div className="flex flex-col gap-1.5">
+          <FloatingInput
+            id="reg-email"
+            type="email"
+            label={t('auth.email')}
+            value={email}
+            onChange={(e) => { setEmail(e.target.value); setFieldErrors(p => ({ ...p, email: undefined })); }}
+            autoComplete="email"
+            error={!!fieldErrors.email}
+          />
+          <FieldError message={fieldErrors.email} />
+        </div>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3 my-1">
+          <div className="flex-1 h-px bg-zinc-800" />
+          <span className="text-[10px] text-zinc-600 font-medium uppercase tracking-widest">{t('auth.securePassword', 'Secure password')}</span>
+          <div className="flex-1 h-px bg-zinc-800" />
+        </div>
+
+        {/* Password */}
+        <div className="flex flex-col gap-1.5">
+          <div className="relative">
+            <FloatingInput
+              id="reg-password"
+              type={showPassword ? 'text' : 'password'}
+              label={t('auth.password')}
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setFieldErrors(p => ({ ...p, password: undefined })); }}
+              autoComplete="new-password"
+              error={!!fieldErrors.password}
+              className="pr-11"
+            />
+            {password && (
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-zinc-500 hover:text-zinc-300 transition-colors rounded-lg z-10"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            )}
+          </div>
+          <FieldError message={fieldErrors.password} />
+        </div>
+
+        <Button
+          type="submit"
+          disabled={loading}
+          className="h-11 bg-primary hover:bg-primary-dim text-zinc-950 font-bold text-sm rounded-xl disabled:opacity-40 transition-all duration-200 mt-2"
+        >
+          {loading
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : t('auth.registerAction')
+          }
+        </Button>
+
+        <p className="text-xs text-zinc-500 text-center">
+          {t('auth.hasAccount')}{' '}
+          <button type="button" onClick={onSwitchToLogin} className="text-primary hover:text-primary-dim hover:underline font-semibold transition-colors">
+            {t('auth.login')}
+          </button>
+        </p>
+      </form>
+
       <RegistrationBlockedModal
         isOpen={showBlockedModal}
         onClose={() => setShowBlockedModal(false)}
         errorDetails={blockedMessage}
       />
+    </div>
+  );
+}
+
+// ─── Main AuthPage ──────────────────────────────────────────────────────────
+
+export default function AuthPage() {
+  const { t } = useTranslation();
+  const { login, register } = useAuthContext();
+  const [searchParams, setSearchParams] = useSearchParams();
+  useThemeSync();
+  const action = searchParams.get('action') || 'signin';
+  usePageTitle();
+
+  // The 'view' state manages internal steps (identifier vs password) 
+  // but respects the top-level 'action' (signin vs signup)
+  const [view, setView] = useState(() => {
+    return action === 'signup' ? 'register' : 'login-identifier';
+  });
+
+  const [identifierData, setIdentifierData] = useState(null); // { identifier, username, avatarUrl }
+  const [tipSeed] = useState(() => Math.floor(Math.random() * 1000));
+
+  // 1. Sync view state when action changes (e.g. browser back button or direct link)
+  useEffect(() => {
+    if (action === 'signup') {
+      setView('register');
+    } else if (action === 'signin' || action === 'sign-in') {
+      // If we are already in the password step, don't reset to identifier 
+      // unless we actually switched from signup
+      setView(prev => prev === 'register' ? 'login-identifier' : prev);
+    }
+  }, [action]);
+
+  // 2. Sync URL when view state changes manually (e.g. switchView calls)
+  useEffect(() => {
+    const currentAction = action;
+    const targetAction = view === 'register' ? 'signup' : 'signin';
+    
+    if (currentAction !== targetAction && !(currentAction === 'sign-in' && targetAction === 'signin')) {
+      setSearchParams({ action: targetAction }, { replace: true });
+    }
+  }, [view, action, setSearchParams]);
+
+  const handleIdentifierNext = useCallback((data) => {
+    setIdentifierData(data);
+    setView('login-password');
+  }, []);
+
+  const handleBack = useCallback(() => {
+    setIdentifierData(null);
+    setView('login-identifier');
+  }, []);
+
+  const switchView = useCallback((newView) => {
+    setView(newView);
+    setIdentifierData(null);
+    // Force immediate URL update to be snappy
+    setSearchParams({ action: newView === 'register' ? 'signup' : 'signin' }, { replace: true });
+  }, [setSearchParams]);
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden px-4 font-sans">
+      <Background />
+
+      <div className="relative z-raised w-full max-w-sm mx-auto">
+        {/* Logo */}
+        <div className="flex flex-col items-center mb-10">
+          <div className="w-16 h-16 flex items-center justify-center mb-3">
+            <img 
+              src="https://res.cloudinary.com/dzjid2tos/image/upload/v1778106770/lrc-logo_dkumwz.png" 
+              alt="LRC Studio" 
+              className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(29,185,84,0.3)]"
+            />
+          </div>
+          <p className="text-base font-bold text-zinc-100 tracking-tight font-heading">{t('app.name')}</p>
+        </div>
+
+        {/* Card */}
+        <div className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-700/40 rounded-3xl shadow-2xl shadow-black/60 p-8">
+          {view === 'login-identifier' && (
+            <LoginIdentifierStep
+              t={t}
+              onNext={handleIdentifierNext}
+              onSwitchToRegister={() => switchView('register')}
+            />
+          )}
+
+          {view === 'login-password' && identifierData && (
+            <LoginPasswordStep
+              t={t}
+              identifierData={identifierData}
+              onBack={handleBack}
+              onLogin={login}
+            />
+          )}
+
+          {view === 'register' && (
+            <RegisterForm
+              t={t}
+              onSwitchToLogin={() => switchView('login-identifier')}
+              onRegister={register}
+            />
+          )}
+        </div>
+
+        <TipFooter t={t} seed={tipSeed} />
+      </div>
     </div>
   );
 }
