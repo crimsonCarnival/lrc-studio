@@ -1,0 +1,27 @@
+{
+  "name": "Syncify",
+  "short_name": "Syncify",
+  "description": "Synchronization tool for lyrics and music.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "icons": [
+    {
+      "src": "https://res.cloudinary.com/dzjid2tos/image/upload/v1778106908/favicon-32x32_c0xrwo.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "https://res.cloudinary.com/dzjid2tos/image/upload/v1778106908/android-chrome-192x192_ifsskm.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://res.cloudinary.com/dzjid2tos/image/upload/v1778106908/android-chrome-192x192_ifsskm.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
