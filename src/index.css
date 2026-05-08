@@ -22,9 +22,9 @@ input:-webkit-autofill:active {
 
 @theme {
   /* ── Fonts ── */
-  --font-heading: "Stack Sans Notch", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Fira Sans", "Noto Serif JP", "Noto Serif TC", ui-sans-serif, system-ui, sans-serif;
-  --font-lyrics: "Fira Sans", "Noto Serif JP", "Noto Serif TC", ui-sans-serif, sans-serif;
+  --font-heading: "Stack Sans Notch", "Noto Serif JP", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Fira Sans", "Noto Serif JP", ui-sans-serif, system-ui, sans-serif;
+  --font-lyrics: "Fira Sans", "Noto Serif JP", ui-sans-serif, sans-serif;
 
   /* ── Colors ── */
   --color-primary: #1DB954;

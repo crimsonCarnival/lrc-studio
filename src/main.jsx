@@ -10,8 +10,18 @@ import { Toaster } from 'react-hot-toast'
 import { TooltipProvider } from '@ui/tooltip'
 import './index.css';
 import './i18n.js';
+import { useTranslation } from 'react-i18next';
+import { useEffect } from 'react';
 import App from './App.jsx'
 import ErrorBoundary from '@shared/ErrorBoundary.jsx'
+
+function LanguageSync() {
+  const { i18n } = useTranslation();
+  useEffect(() => {
+    document.documentElement.lang = i18n.language || 'en';
+  }, [i18n.language]);
+  return null;
+}
 import { AuthProvider } from './contexts/AuthContext.jsx'
 import { useAuthContext } from './contexts/useAuthContext.js'
 import { Spinner } from '@ui/skeleton'
@@ -104,6 +114,7 @@ createRoot(document.getElementById('root')).render(
     <ErrorBoundary>
       <GoogleReCaptchaProvider reCaptchaKey={import.meta.env.VITE_RECAPTCHA_KEY}>
         <AuthProvider>
+          <LanguageSync />
           <AppProviders>
             <BrowserRouter>
               <RootRoutes />
