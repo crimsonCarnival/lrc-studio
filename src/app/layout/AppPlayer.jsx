@@ -39,7 +39,7 @@ export function AppPlayer({
   const { updateSetting } = useSettings();
 
   const positionClass = playerTop
-    ? 'top-16 lg:top-[88px] bottom-auto'
+    ? 'lg:top-[88px] lg:bottom-auto bottom-14 top-auto'
     : 'bottom-14 lg:bottom-6 top-auto';
 
   if (!isPlayerMounted) return null;

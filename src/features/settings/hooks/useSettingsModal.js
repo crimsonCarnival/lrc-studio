@@ -47,7 +47,7 @@ export function useSettingsModal(isOpen, onClose, globalSettings, updateAllSetti
         }
         current[keys[keys.length - 1]] = value;
 
-        if (nextSettings.advanced.autoSave.enabled || prev.advanced?.autoSave?.enabled) {
+        if (nextSettings.advanced?.autoSave?.enabled || prev.advanced?.autoSave?.enabled) {
           autoSaveRef.current = nextSettings;
         }
         return nextSettings;
@@ -103,7 +103,7 @@ export function useSettingsModal(isOpen, onClose, globalSettings, updateAllSetti
     setSettings(DEFAULT_SETTINGS);
     if (
       settings.advanced?.autoSave?.enabled ||
-      DEFAULT_SETTINGS.advanced.autoSave.enabled
+      DEFAULT_SETTINGS.advanced?.autoSave?.enabled
     ) {
       updateAllSettings(DEFAULT_SETTINGS);
     }

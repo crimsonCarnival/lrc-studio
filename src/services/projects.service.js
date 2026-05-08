@@ -146,4 +146,58 @@ export const projectsService = {
     const data = await gqlRequest(DELETE_PROJECT, { id });
     return data.deleteProject;
   },
+
+  async getShare(id) {
+    const data = await gqlRequest(`
+      query GetShare($id: ID!) {
+        getShare(id: $id) {
+          id
+          projectId
+          title
+          createdAt
+          user {
+            username
+          }
+          upload {
+            id
+            source
+            fileName
+            title
+            youtubeUrl
+            cloudinaryUrl
+            duration
+          }
+          lyrics {
+            editorMode
+            lines {
+              text
+              timestamp
+              endTime
+              secondary
+              translation
+              words { word time reading }
+              secondaryWords { word time }
+            }
+          }
+          metadata {
+            description
+            tags
+          }
+        }
+      }
+    `, { id });
+    return { project: data.getShare };
+  },
+
+  async clone(id) {
+    const data = await gqlRequest(`
+      mutation CloneProject($id: ID!) {
+        cloneProject(id: $id) {
+          id
+          projectId
+        }
+      }
+    `, { id });
+    return data.cloneProject;
+  },
 };

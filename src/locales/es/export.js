@@ -7,10 +7,19 @@ export default {
   "metaTitle": "Título",
   "metaArtist": "Artista",
   "metaAlbum": "Álbum",
+  "metaAuthor": "Autor",
+  "metaCreator": "Creador LRC",
   "metaLanguage": "Idioma",
+  "metaResource": "Recurso",
+  "metaVersion": "Versión",
   "continue": "Exportar",
   "success": "Archivo descargado",
   "copyFailed": "Error al copiar al portapapeles",
   "includeSecondaryLrc": "Letra secundaria",
-  "includeTranslationsLrc": "Traducciones"
+  "includeTranslationsLrc": "Traducciones",
+  "includeInExport": "Incluir",
+  "includeOptions": "Incluir en la exportación",
+  "includeWords": "Marcas de tiempo palabra por palabra",
+  "includeSecondary": "Letra secundaria",
+  "noExtraContent": "No hay texto secundario, traducciones ni marcas de tiempo de palabras para incluir."
 };

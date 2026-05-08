@@ -75,7 +75,7 @@ export function useAutosave({
 
       if (!uploadIdToSave && cloudinaryAudio) {
         try {
-          const { upload } = await uploads.saveMedia({
+          const upload = await uploads.saveMedia({
             source: 'cloudinary',
             cloudinaryUrl: cloudinaryAudio.cloudinaryUrl,
             publicId: cloudinaryAudio.publicId,
@@ -90,7 +90,7 @@ export function useAutosave({
         }
       } else if (!uploadIdToSave && payload.ytUrl) {
         try {
-          const { upload } = await uploads.saveMedia({
+          const upload = await uploads.saveMedia({
             source: 'youtube',
             youtubeUrl: payload.ytUrl,
             fileName: '',
@@ -154,7 +154,7 @@ export function useAutosave({
       let uploadIdToSave = null;
       if (cloudinaryAudio) {
         try {
-          const { upload } = await uploads.saveMedia({
+          const upload = await uploads.saveMedia({
             source: 'cloudinary',
             cloudinaryUrl: cloudinaryAudio.cloudinaryUrl,
             publicId: cloudinaryAudio.publicId,
@@ -168,7 +168,7 @@ export function useAutosave({
         }
       } else if (payload.ytUrl) {
         try {
-          const { upload } = await uploads.saveMedia({
+          const upload = await uploads.saveMedia({
             source: 'youtube',
             youtubeUrl: payload.ytUrl,
             fileName: '',

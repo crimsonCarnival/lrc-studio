@@ -28,5 +28,7 @@ export default {
   "private": "自分のみ",
   "privateDescription": "あなただけがこのプロジェクトにアクセスできます。その他の人は拒否されます。",
   "public": "リンクを知っている人全員",
-  "includeTime": "現在の時刻から開始"
+  "includeTime": "現在の時刻から開始",
+  "by": "作成者:",
+  "guest": "ゲスト"
 };

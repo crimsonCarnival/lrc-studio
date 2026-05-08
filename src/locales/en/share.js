@@ -30,5 +30,7 @@ export default {
   "private": "Only me",
   "privateDescription": "Only you can access this project. Others will be denied.",
   "public": "Anyone with link",
-  "includeTime": "Start at current time"
+  "includeTime": "Start at current time",
+  "by": "by",
+  "guest": "Guest"
 };

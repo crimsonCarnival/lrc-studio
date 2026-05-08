@@ -30,5 +30,7 @@ export default {
   "private": "Solo yo",
   "privateDescription": "Solo tú puedes acceder a este proyecto. Otros no podrán verlo.",
   "public": "Cualquiera con el enlace",
-  "includeTime": "Empezar en el tiempo actual"
+  "includeTime": "Empezar en el tiempo actual",
+  "by": "por",
+  "guest": "Invitado"
 };

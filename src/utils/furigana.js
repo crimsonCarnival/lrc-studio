@@ -117,6 +117,13 @@ export function hasCJK(text) {
 }
 
 /**
+ * Check if a string contains any Kanji characters.
+ */
+export function hasKanji(text) {
+  return KANJI_RE.test(text);
+}
+
+/**
  * Parse {word|reading} ruby markup into plain text and annotated segments.
  * Supports single-char ({字|じ}) and multi-char ({二人|ふたり}) annotations.
  *

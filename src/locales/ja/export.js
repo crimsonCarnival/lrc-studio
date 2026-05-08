@@ -7,10 +7,19 @@ export default {
   "metaTitle": "タイトル",
   "metaArtist": "アーティスト",
   "metaAlbum": "アルバム",
+  "metaAuthor": "作詞/作曲",
+  "metaCreator": "作成者",
   "metaLanguage": "言語",
+  "metaResource": "リソース",
+  "metaVersion": "バージョン",
   "continue": "エクスポート",
   "success": "ファイルをダウンロードしました",
   "copyFailed": "クリップボードへのコピーに失敗しました",
   "includeSecondaryLrc": "セカンダリ歌詞",
-  "includeTranslationsLrc": "翻訳"
+  "includeTranslationsLrc": "翻訳",
+  "includeInExport": "含める",
+  "includeOptions": "エクスポートに含める項目",
+  "includeWords": "単語ごとのタイムスタンプ",
+  "includeSecondary": "セカンダリ歌詞",
+  "noExtraContent": "含めるセカンダリテキスト、翻訳、または単語のタイムスタンプはありません。"
 };

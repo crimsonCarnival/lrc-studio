@@ -65,6 +65,7 @@ export function useSharedProject({
   const [isSharedProject, setIsSharedProject] = useState(false);
   const [sharedReadOnly, setSharedReadOnly] = useState(true);
   const [shareModal, _setShareModal] = useState(null);
+  const [lastShareData, setLastShareData] = useState(null);
   const isSharedProjectRef = useRef(false);
   const sharedReadOnlyRef = useRef(true);
 
@@ -105,16 +106,19 @@ export function useSharedProject({
     if (looksLikeId) {
       setIsProjectLoading(true);
       projects.get(encoded)
-        .then(({ project }) => restoreProject({
-          lines: project.lyrics?.lines || [],
-          editorMode: project.lyrics?.editorMode || 'lrc',
-          ytUrl: project.upload?.youtubeUrl || '',
-          syncMode: project.state?.syncMode ?? true,
-          activeLineIndex: project.state?.activeLineIndex || 0,
-          playbackPosition: project.state?.playbackPosition || 0,
-          playbackSpeed: project.state?.playbackSpeed || 1,
-          readOnly: project.readOnly !== false,
-        }))
+        .then((project) => {
+          if (!project) throw new Error('Project not found');
+          restoreProject({
+            lines: project.lyrics?.lines || [],
+            editorMode: project.lyrics?.editorMode || 'lrc',
+            ytUrl: project.upload?.youtubeUrl || '',
+            syncMode: project.state?.syncMode ?? true,
+            activeLineIndex: project.state?.activeLineIndex || 0,
+            playbackPosition: project.state?.playbackPosition || 0,
+            playbackSpeed: project.state?.playbackSpeed || 1,
+            readOnly: project.readOnly !== false,
+          });
+        })
         .catch(() => decompressFromBase64(encoded)
           .then((text) => { const raw = JSON.parse(text); restoreProject(raw.v === 1 ? expandSharePayload(raw) : raw); })
           .catch((err) => console.error('Failed to decode shared project URL', err)))
@@ -150,12 +154,43 @@ export function useSharedProject({
 
   // ── Export to shareable URL ───────────────────────────────────────────────
   const exportToUrl = useCallback(async () => {
+    // If we already have a share link, show it immediately while we update in the background
+    if (lastShareData) {
+      setShareModalState(lastShareData);
+    } else {
+      setShareModalState({ loading: 'media' });
+    }
+
     try {
+      let sharedId = activeProjectIdRef.current;
       let uploadIdToSave = null;
       if (cloudinaryAudio) {
-        try { const { upload } = await uploads.saveMedia({ source: 'cloudinary', cloudinaryUrl: cloudinaryAudio.cloudinaryUrl, publicId: cloudinaryAudio.publicId, fileName: cloudinaryAudio.fileName, title: cloudinaryAudio.fileName?.replace(/\.[^/.]+$/, '') || '', duration: cloudinaryAudio.duration }); uploadIdToSave = upload.id; } catch (err) { console.error(err); }
+        try {
+          const upload = await uploads.saveMedia({
+            source: 'cloudinary',
+            cloudinaryUrl: cloudinaryAudio.cloudinaryUrl,
+            publicId: cloudinaryAudio.publicId,
+            fileName: cloudinaryAudio.fileName,
+            title: cloudinaryAudio.fileName?.replace(/\.[^/.]+$/, '') || '',
+            duration: cloudinaryAudio.duration,
+          });
+          uploadIdToSave = upload.id;
+        } catch (err) {
+          console.error(err);
+        }
       } else if (projectYtUrl) {
-        try { const { upload } = await uploads.saveMedia({ source: 'youtube', youtubeUrl: projectYtUrl, fileName: '', title: mediaTitle || '', duration: duration || null }); uploadIdToSave = upload.id; } catch (err) { console.error(err); }
+        try {
+          const upload = await uploads.saveMedia({
+            source: 'youtube',
+            youtubeUrl: projectYtUrl,
+            fileName: '',
+            title: mediaTitle || '',
+            duration: duration || null,
+          });
+          uploadIdToSave = upload.id;
+        } catch (err) {
+          console.error(err);
+        }
       }
 
       const projectData = {
@@ -163,15 +198,19 @@ export function useSharedProject({
         metadata: projectMetadata,
         lyrics: { editorMode, lines: lines.map((l) => ({ ...l, id: undefined })) },
         state: { syncMode, activeLineIndex: 0, playbackPosition: 0, playbackSpeed: 1 },
+        public: true,
       };
       if (uploadIdToSave) projectData.uploadId = uploadIdToSave;
 
       if (sharedId) {
+        if (!lastShareData) setShareModalState({ loading: 'saving' });
         try { await projects.update(sharedId, projectData); }
         catch (err) { console.error(err); sharedId = null; }
       }
       if (!sharedId) {
+        if (!lastShareData) setShareModalState({ loading: 'recaptcha' });
         const recaptchaToken = executeRecaptcha ? await executeRecaptcha('share_project') : undefined;
+        if (!lastShareData) setShareModalState({ loading: 'creating' });
         const result = await projects.create({ ...projectData, recaptchaToken });
         sharedId = result.projectId;
         setActiveProjectId(sharedId);
@@ -179,7 +218,7 @@ export function useSharedProject({
         localStorage.setItem(ACTIVE_PROJECT_ID_KEY, sharedId);
       }
 
-      setShareModalState({
+      const finalData = {
         url: `${window.location.origin}/share/${sharedId}`,
         ytUrl: projectYtUrl,
         cloudinaryAudio,
@@ -188,11 +227,14 @@ export function useSharedProject({
         linesCount: lines.length,
         hasSynced: lines.some((l) => l.timestamp != null),
         readOnly: true,
-      });
+      };
+      setLastShareData(finalData);
+      setShareModalState(finalData);
     } catch {
+      setShareModalState(null);
       toast.error(t('project.shareFailed') || 'Could not generate share link.');
     }
-  }, [lines, editorMode, projectYtUrl, syncMode, mediaTitle, cloudinaryAudio, duration, t, projectMetadata, activeProjectIdRef, setActiveProjectId, setShareModalState, executeRecaptcha]);
+  }, [lines, editorMode, projectYtUrl, syncMode, mediaTitle, cloudinaryAudio, duration, t, projectMetadata, activeProjectIdRef, setActiveProjectId, setShareModalState, executeRecaptcha, lastShareData, projectSpotifyTrackId]);
 
   return {
     isSharedProject, setIsSharedProject,

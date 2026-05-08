@@ -71,6 +71,10 @@ function SharedProjectViewerInner({ projectId }) {
     projects.getShare(projectId)
       .then(({ project }) => {
         if (cancelled) return;
+        if (!project) {
+          setLoadStatus(404);
+          return;
+        }
         const rawLines = (project.lyrics?.lines || []).map((l) => ({
           text: l.text || '',
           timestamp: l.timestamp ?? null,
@@ -186,6 +190,16 @@ function SharedProjectViewerInner({ projectId }) {
 
       {/* ── Preview (flex-1) ── */}
       <div className="relative z-base flex-1 min-h-0 px-2 sm:px-4 lg:px-6 py-4 lg:pb-0 flex flex-col">
+        {/* Author info bar */}
+        <div className="flex items-center gap-2 mb-3 px-2">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-zinc-900/50 border border-zinc-800/80 text-[10px] sm:text-xs font-medium text-zinc-400">
+            <Music2 className="w-3 h-3 text-primary" />
+            <span>{t('share.by', 'by')} <span className="text-zinc-200">{projectData?.user?.username || t('share.guest', 'Guest')}</span></span>
+            <span className="w-1 h-1 rounded-full bg-zinc-700 mx-1" />
+            <span>{projectData?.createdAt ? new Date(projectData.createdAt).toLocaleDateString() : ''}</span>
+          </div>
+        </div>
+
         <Preview
           lines={lines}
           setLines={() => { }} // read-only — no edits

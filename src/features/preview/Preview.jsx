@@ -15,6 +15,7 @@ import {
 } from '@ui/popover';
 import { Tip } from '@ui/tip';
 import { SharePanel } from '@shared/ShareModal';
+import { useAuthContext } from '@/contexts/useAuthContext';
 import { Eye, Share2, X, Lock, LockOpen, BookOpen, Plus } from 'lucide-react';
 
 export default function Preview(props) {
@@ -123,6 +124,8 @@ export default function Preview(props) {
     exportToUrl();
   }, [shareModal, setShareModal, exportToUrl]);
 
+  const { user } = useAuthContext();
+
   return (
     <>
       <div className="lg:glass relative lg:rounded-2xl rounded-none p-3 sm:p-5 flex flex-col flex-1 animate-fade-in min-h-0">
@@ -148,32 +151,34 @@ export default function Preview(props) {
                   </Button>
                 </Tip>
               )}
-              {/* Share button */}
-              <Tip content={shareModal ? t('share.close') : (isSharedProject ? t('share.viewingShared') : t('app.shareProject'))}>
-                {viewerMode ? (
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg text-primary bg-primary/10">
-                    <Share2 className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={1.8} />
-                  </div>
-                ) : (
-                  <Button
-                    ref={shareTriggerRef}
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleShareToggle}
-                    className={`flex-shrink-0 transition-colors ${isSharedProject
-                      ? 'text-primary bg-primary/10 hover:bg-primary/20'
-                      : shareModal
-                        ? 'bg-zinc-800 text-zinc-100 hover:bg-zinc-700'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
-                      }`}
-                  >
-                    {shareModal
-                      ? <X className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={2} />
-                      : <Share2 className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={1.8} />
-                    }
-                  </Button>
-                )}
-              </Tip>
+              {/* Share button - restricted to logged in users */}
+              {user && (
+                <Tip content={shareModal ? t('share.close') : (isSharedProject ? t('share.viewingShared') : t('app.shareProject'))}>
+                  {viewerMode ? (
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg text-primary bg-primary/10">
+                      <Share2 className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={1.8} />
+                    </div>
+                  ) : (
+                    <Button
+                      ref={shareTriggerRef}
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleShareToggle}
+                      className={`flex-shrink-0 transition-colors ${isSharedProject
+                        ? 'text-primary bg-primary/10 hover:bg-primary/20'
+                        : shareModal
+                          ? 'bg-zinc-800 text-zinc-100 hover:bg-zinc-700'
+                          : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                        }`}
+                    >
+                      {shareModal
+                        ? <X className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={2} />
+                        : <Share2 className="w-4 sm:w-5 h-4 sm:h-5" strokeWidth={1.8} />
+                      }
+                    </Button>
+                  )}
+                </Tip>
+              )}
               {/* Lock/unlock toggle for shared projects */}
               {isSharedProject && !viewerMode && (
                 <Tip content={sharedReadOnly ? t('share.readOnlyTitle') : t('share.editingTitle')}>

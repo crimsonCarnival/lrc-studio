@@ -7,10 +7,19 @@ export default {
   "metaTitle": "Title",
   "metaArtist": "Artist",
   "metaAlbum": "Album",
+  "metaAuthor": "Author",
+  "metaCreator": "LRC Creator",
   "metaLanguage": "Language",
+  "metaResource": "Resource",
+  "metaVersion": "Version",
   "continue": "Export",
   "success": "File downloaded",
   "copyFailed": "Failed to copy to clipboard",
   "includeSecondaryLrc": "Secondary lyrics",
-  "includeTranslationsLrc": "Translations"
+  "includeTranslationsLrc": "Translations",
+  "includeInExport": "Include",
+  "includeOptions": "Include in export",
+  "includeWords": "Word-by-word timestamps",
+  "includeSecondary": "Secondary lyrics",
+  "noExtraContent": "No secondary text, translations, or word timestamps to include."
 };

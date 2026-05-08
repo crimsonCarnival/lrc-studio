@@ -130,7 +130,18 @@ export function useProjectActions({
         setIsProjectLoading(true);
         let uploadIdToSave = null;
         if (pendingProject.ytUrl) {
-          try { const { upload } = await uploads.saveMedia({ source: 'youtube', youtubeUrl: pendingProject.ytUrl, fileName: '', title: mediaTitle || '', duration: duration || null }); uploadIdToSave = upload.id; } catch (err) { console.error(err); }
+          try {
+            const upload = await uploads.saveMedia({
+              source: 'youtube',
+              youtubeUrl: pendingProject.ytUrl,
+              fileName: '',
+              title: mediaTitle || '',
+              duration: duration || null,
+            });
+            uploadIdToSave = upload.id;
+          } catch (err) {
+            console.error(err);
+          }
         }
         const serverPayload = { title: mediaTitle || pendingProject.title || '', metadata: projectMetadata, lyrics: { editorMode: restoredMode, lines: validLines }, state: { syncMode: true, activeLineIndex: idx || 0, playbackPosition: pendingProject.playbackPosition || 0, playbackSpeed: pendingProject.playbackSpeed || 1 }, readOnly: false };
         if (uploadIdToSave) serverPayload.uploadId = uploadIdToSave;

@@ -2,7 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@ui/button';
 import { Input } from '@ui/input';
-import { Copy, Check, AlertCircle, Clock, Calendar, Cloud } from 'lucide-react';
+import { Copy, Check, AlertCircle, Clock, Calendar, Cloud, Share2 } from 'lucide-react';
 import { Tip } from '@ui/tip';
 import { formatTime } from '@/utils/formatTime';
 
@@ -18,7 +18,8 @@ export function SharePanel({
   isPublic = true, 
   onPrivacyChange, 
   playbackPosition = 0,
-  duration = 0
+  duration = 0,
+  loading = false,
 }) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
@@ -40,9 +41,9 @@ export function SharePanel({
   }, [includeTime, playbackPosition, customTime]);
 
   // Dynamic URL
-  const url = includeTime && customTime >= 0 
+  const url = loading ? '' : (includeTime && customTime >= 0 
     ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}s=${customTime}`
-    : baseUrl;
+    : (baseUrl || ''));
 
   const handlePrivacyToggle = () => {
     const newPrivacy = privacy === 'public' ? 'private' : 'public';
@@ -70,6 +71,54 @@ export function SharePanel({
     const val = parseInt(e.target.value) || 0;
     setCustomTime(Math.max(0, duration > 0 ? Math.min(duration, val) : val));
   };
+
+  if (loading) {
+    const loadingMessages = {
+      recaptcha: {
+        title: t('share.securityCheck', 'Security Check'),
+        desc: t('share.verifying', 'Verifying your session with Google reCAPTCHA...')
+      },
+      media: {
+        title: t('share.linkingMedia', 'Linking Media'),
+        desc: t('share.preparingUpload', 'Processing audio and media metadata...')
+      },
+      saving: {
+        title: t('share.updatingProject', 'Updating Project'),
+        desc: t('share.syncing', 'Syncing latest changes to the cloud...')
+      },
+      creating: {
+        title: t('share.generatingLink', 'Generating Link'),
+        desc: t('share.almostReady', 'Creating your shareable project URL...')
+      },
+      default: {
+        title: t('share.generating', 'Generating Link...'),
+        desc: t('share.almostReady', 'Saving your project to the cloud')
+      }
+    };
+
+    const msg = loadingMessages[loading] || loadingMessages.default;
+
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 p-8 animate-fade-in min-h-[280px]">
+        <div className="relative">
+          <div className="w-12 h-12 rounded-full border-2 border-zinc-800 border-t-primary animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            {loading === 'recaptcha' ? (
+              <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            ) : (
+              <Share2 className="w-5 h-5 text-zinc-600" />
+            )}
+          </div>
+        </div>
+        <div className="text-center space-y-1">
+          <p className="text-sm font-bold text-zinc-200">{msg.title}</p>
+          <p className="text-[10px] text-zinc-500 max-w-[200px] mx-auto">{msg.desc}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4 p-4 animate-fade-in">

@@ -80,10 +80,10 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
       <div className={`relative z-base flex-1 min-h-0 px-0 lg:px-6 flex flex-col transition-[padding] duration-500 ease-in-out
         ${
           location.pathname === '/' ? 'pt-16'
-          : (playerTop && isReady && isPlayerMounted) ? 'pt-[200px] lg:pt-[216px]'
+          : (playerTop && isReady && isPlayerMounted) ? 'max-lg:pt-24 lg:pt-[216px]'
           : 'pt-24 lg:pt-[104px]'
         }
-        ${(isPlayerMounted && !playerTop) ? 'max-lg:pb-[240px] lg:pb-[160px]' : 'pb-20 lg:pb-6'}
+        ${isPlayerMounted ? 'max-lg:pb-[240px] lg:pb-[160px]' : 'pb-20 lg:pb-6'}
       `}
         style={(isPlayerMounted && !playerTop && window.innerWidth >= 1024) ? { marginBottom: '24px' } : undefined}
       >

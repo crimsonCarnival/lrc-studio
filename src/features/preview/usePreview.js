@@ -27,15 +27,24 @@ export function usePreview({ lines, setLines, playbackPosition, playerRef, durat
   const [showTranslationsInPreview, setShowTranslationsInPreview] = useState(true);
   const [showFuriganaInPreview, setShowFuriganaInPreview] = useState(true);
   const [wasCopied, setWasCopied] = useState(false);
-  const [metadata, setMetadata] = useState({ ti: '', ar: '', al: '', lg: '' });
+  const [metadata, setMetadata] = useState({ 
+    ti: '', // Title
+    ar: '', // Artist
+    al: '', // Album
+    au: '', // Author/Composer
+    by: '', // LRC Creator
+    lg: '', // Language
+    re: '', // Resource/Player
+    ve: ''  // Version
+  });
 
-  const [prevMediaTitle, setPrevMediaTitle] = useState(mediaTitle);
-  if (mediaTitle !== prevMediaTitle) {
-    setPrevMediaTitle(mediaTitle);
+  useEffect(() => {
     if (settings.export?.defaultFilenamePattern === 'media' && mediaTitle) {
       setExportFilename(mediaTitle);
+    } else if (settings.export?.defaultFilenamePattern === 'fixed') {
+      setExportFilename('lyrics');
     }
-  }
+  }, [settings.export?.defaultFilenamePattern, mediaTitle]);
 
   const sizeOption = settings.interface?.fontSize || 'normal';
   const spacingOption = settings.interface?.spacing || 'normal';

@@ -99,35 +99,50 @@ function sanitizeLrcTag(s) {
  * @param {'lf'|'crlf'} lineEndings
  * @returns {string}
  */
+
 export function compileLRC(lines, includeTranslations = false, precision = 'hundredths', metadata = {}, lineEndings = 'lf', includeSecondary = false, wordPrecision) {
   const wp = wordPrecision || precision;
   let header = '';
   if (metadata.ti) header += `[ti:${sanitizeLrcTag(metadata.ti)}]\n`;
   if (metadata.ar) header += `[ar:${sanitizeLrcTag(metadata.ar)}]\n`;
   if (metadata.al) header += `[al:${sanitizeLrcTag(metadata.al)}]\n`;
+  if (metadata.au) header += `[au:${sanitizeLrcTag(metadata.au)}]\n`;
+  if (metadata.by) header += `[by:${sanitizeLrcTag(metadata.by)}]\n`;
   if (metadata.lg) header += `[lg:${sanitizeLrcTag(metadata.lg)}]\n`;
+  if (metadata.re) header += `[re:${sanitizeLrcTag(metadata.re)}]\n`;
+  if (metadata.ve) header += `[ve:${sanitizeLrcTag(metadata.ve)}]\n`;
 
   const body = lines
     .flatMap((line) => {
       if (line.timestamp != null) {
         const ts = line.timestamp;
-        const wordText = line.words?.length
-          ? formatWordsToLrc(line.words, wp)
-          : line.text;
-        let out = `[${formatTimestamp(ts, precision)}] ${wordText}`;
-        if (includeSecondary) {
-          const sec = buildSecondaryText(line, wp);
-          if (sec) out += `\n[${formatTimestamp(ts, precision)}] ${sec}`;
+        const result = [];
+        // Main lyric: furigana/kanji if present, else main text
+        let mainLyric = null;
+        if (line.words?.some(w => w.reading)) {
+          mainLyric = serializeToRubyMarkup(line.words);
+        } else if (line.words?.length) {
+          mainLyric = formatWordsToLrc(line.words, wp);
+        } else {
+          mainLyric = line.text;
         }
+        result.push(`[${formatTimestamp(ts, precision)}] ${mainLyric}`);
+
+        // Secondary lyric: romaji (line.secondary)
+        if (includeSecondary && line.secondary) {
+          result.push(`[${formatTimestamp(ts, precision)}] ${line.secondary}`);
+        }
+
+        // Translation
         if (includeTranslations && line.translation) {
-          out += `\n[${formatTimestamp(ts, precision)}] ${line.translation}`;
+          result.push(`[${formatTimestamp(ts, precision)}] ${line.translation}`);
         }
-        return out;
+        return result;
       }
       return [line.text];
     })
     .join('\n');
-    
+
   let result = header + body;
   return lineEndings === 'crlf' ? result.replace(/\n/g, '\r\n') : result;
 }
@@ -241,6 +256,7 @@ export function formatSrtTimestamp(seconds) {
  * @param {object} srtConfig
  * @returns {string}
  */
+
 export function compileSRT(lines, duration, includeTranslations = false, lineEndings = 'lf', srtConfig = {}, includeSecondary = false) {
   const minGap = srtConfig.minSubtitleGap || 0.05;
   const defaultDur = srtConfig.defaultSubtitleDuration || 5;
@@ -258,20 +274,29 @@ export function compileSRT(lines, duration, includeTranslations = false, lineEnd
       if (nextLine && nextLine.timestamp != null) {
         end = Math.max(start + minGap, nextLine.timestamp - minGap);
       } else if (duration) {
-        // Cap at start + defaultDur, but not beyond the track duration
         end = Math.min(start + defaultDur, duration);
       } else {
         end = start + defaultDur;
       }
     }
 
-    return `${i + 1}\n${formatSrtTimestamp(start)} --> ${formatSrtTimestamp(end)}\n${
-      (includeSecondary && buildSecondaryText(line)) ? buildSecondaryText(line) + '\n' : ''
-    }${line.text}${
-      (includeTranslations && line.translation) ? '\n' + line.translation : ''
-    }\n`;
+    // Build all lines for this timestamp
+    const linesForThisTimestamp = [];
+    // Main lyric
+    linesForThisTimestamp.push(line.text);
+    // Secondary lyric
+    if (includeSecondary) {
+      const sec = buildSecondaryText(line);
+      if (sec) linesForThisTimestamp.push(sec);
+    }
+    // Translation
+    if (includeTranslations && line.translation) {
+      linesForThisTimestamp.push(line.translation);
+    }
+
+    return `${i + 1}\n${formatSrtTimestamp(start)} --> ${formatSrtTimestamp(end)}\n${linesForThisTimestamp.join('\n')}\n`;
   }).join('\n');
-  
+
   return lineEndings === 'crlf' ? body.replace(/\n/g, '\r\n') : body;
 }
 
