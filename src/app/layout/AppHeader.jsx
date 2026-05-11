@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Music2, UploadCloud, Settings as SettingsIcon, LogOut, BookOpen, Pencil,
-  ShieldAlert, Eye, EyeOff, User, HelpCircle, Lightbulb
+  UploadCloud, Settings as SettingsIcon, LogOut, BookOpen, Pencil,
+  ShieldAlert, Eye, EyeOff, User, HelpCircle, Lightbulb, ArrowLeft, Check,
+  Sun, Moon, Monitor, Palette, Globe
 } from 'lucide-react';
+import { useSetupContext } from '@/contexts/SetupContext';
 import { Button } from '@ui/button';
 import { Input } from '@ui/input';
 import { Popover, PopoverContent, PopoverItem, PopoverTrigger } from '@ui/popover';
@@ -12,9 +14,40 @@ import { Tip } from '@ui/tip';
 import { Kbd } from '@shared/Kbd';
 import { projects, uploads } from '@/api';
 
-/**
- * Full application header: logo/breadcrumb, nav buttons, language/theme/user menus.
- */
+const THEMES = [
+  { id: 'system',      label: 'System',       Icon: Monitor, swatch: 'bg-zinc-500' },
+  { id: 'dark',        label: 'Dark',         Icon: Moon,    swatch: 'bg-zinc-800 border border-zinc-600' },
+  { id: 'light',       label: 'Light',        Icon: Sun,     swatch: 'bg-zinc-200' },
+  { id: 'dracula',     label: 'Dracula',      Icon: Palette, swatch: 'bg-purple-500' },
+  { id: 'alucard',     label: 'Alucard',      Icon: Palette, swatch: 'bg-red-700' },
+  { id: 'alucardlight',label: 'Alucard Light',Icon: Palette, swatch: 'bg-rose-400' },
+];
+
+const LANG_NAMES = {
+  en: { en: 'English',  es: 'Inglés',    ja: '英語'        },
+  es: { en: 'Spanish',  es: 'Español',   ja: 'スペイン語'  },
+  ja: { en: 'Japanese', es: 'Japonés',   ja: '日本語'      },
+};
+
+const LANGUAGES = [
+  { code: 'en', short: 'EN' },
+  { code: 'es', short: 'ES' },
+  { code: 'ja', short: 'JA' },
+];
+
+function getLangLabel(code, currentLang) {
+  const native = LANG_NAMES[code]?.[code] || code;
+  const translated = LANG_NAMES[code]?.[currentLang];
+  if (!translated || translated === native) return native;
+  return `${native} (${translated})`;
+}
+
+function getThemeIcon(theme) {
+  if (theme === 'light' || theme === 'alucardlight') return Sun;
+  if (theme === 'system') return Monitor;
+  return Moon;
+}
+
 export function AppHeader({
   user,
   logout,
@@ -32,12 +65,23 @@ export function AppHeader({
   hideEditor,
   setHideEditor,
   setUnsavedModalTarget,
+  settings,
+  updateSetting,
+  i18n,
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
+  const { step, setStep } = useSetupContext();
   const [editingProjectName, setEditingProjectName] = useState(false);
   const [counts, setCounts] = useState({ library: 0, uploads: 0 });
+
+  const isSetupPage = location.pathname === '/project/new';
+  const isHomePage = location.pathname === '/home' || location.pathname === '/';
+
+  const currentTheme = settings?.interface?.theme || 'dark';
+  const ThemeIcon = getThemeIcon(currentTheme);
+  const currentLang = (i18n?.language || 'en').slice(0, 2).toUpperCase();
 
   const fetchCounts = async () => {
     if (!user) return;
@@ -47,7 +91,6 @@ export function AppHeader({
     } catch (err) { console.error('Failed to fetch counts for menu:', err); }
   };
 
-  // ——— Tip Rotation Logic ———
   const [tipIndex, setTipIndex] = useState(0);
   const tips = t('home.tips', { returnObjects: true });
   const hasTips = Array.isArray(tips) && tips.length > 0;
@@ -56,11 +99,9 @@ export function AppHeader({
     if (!hasTips) return;
     const interval = setInterval(() => {
       setTipIndex(prev => (prev + 1) % tips.length);
-    }, 20000); // Rotate every 20s
+    }, 20000);
     return () => clearInterval(interval);
   }, [hasTips, tips.length]);
-
-  const isHomePage = location.pathname === '/home' || location.pathname === '/';
 
   const goHomeOrWarn = () => {
     if (location.pathname.startsWith('/project/') && hasUnsavedChanges()) {
@@ -82,35 +123,75 @@ export function AppHeader({
   };
 
   const NAV_ACTIVE = `bg-primary text-zinc-950 border-primary hover:bg-primary-dim hover:text-zinc-950`;
-  const NAV_IDLE = `bg-zinc-800/80 border-zinc-700/60 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700`;
+
+  const stepLabels = [
+    t('setup.stepSetup', 'Setup'),
+    t('setup.stepDetails', 'Details'),
+  ];
+
+  const iconBtn = 'h-8 w-8 flex items-center justify-center text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/80 transition-colors rounded-lg flex-shrink-0 cursor-pointer';
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-nav animate-fade-in bg-zinc-950/80 backdrop-blur-md border-b border-zinc-800/50 pointer-events-none">
-      <div className="max-w-[1600px] mx-auto w-full px-4 lg:px-6 py-3 sm:py-5 flex flex-row items-center justify-between gap-2 pointer-events-auto">
-        {/* ── Logo + breadcrumb ── */}
+    <header className="fixed top-0 left-0 right-0 z-nav animate-fade-in bg-zinc-950/85 backdrop-blur-lg border-b border-zinc-800/40 pointer-events-none">
+
+      {/* Step indicator — absolutely centered */}
+      {isSetupPage && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="flex items-center gap-1 bg-zinc-900/60 border border-zinc-800/60 rounded-full px-3 py-1.5 backdrop-blur-sm pointer-events-auto">
+            {stepLabels.map((label, i) => {
+              const n = i + 1;
+              return (
+                <div key={n} className="flex items-center">
+                  {i > 0 && (
+                    <div className={`w-5 h-px mx-1 transition-colors ${step > i ? 'bg-primary/50' : 'bg-zinc-700/60'}`} />
+                  )}
+                  <div className="flex items-center gap-1">
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold transition-all ${
+                      step === n ? 'bg-primary text-zinc-950 scale-110 shadow-sm shadow-primary/30'
+                      : step > n ? 'bg-primary/20 border border-primary/40 text-primary'
+                      : 'bg-zinc-800 border border-zinc-700/60 text-zinc-500'
+                    }`}>
+                      {step > n ? <Check className="w-2.5 h-2.5" /> : n}
+                    </div>
+                    <span className={`text-[9px] font-semibold uppercase tracking-wide hidden sm:block transition-colors ${
+                      step === n ? 'text-primary' : step > n ? 'text-zinc-500' : 'text-zinc-600'
+                    }`}>
+                      {label}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-[1600px] mx-auto w-full px-4 lg:px-6 py-2 sm:py-2.5 flex flex-row items-center justify-between gap-2 pointer-events-auto">
+
+        {/* ── Left: Logo + breadcrumb ── */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink">
           <button
             onClick={goHomeOrWarn}
-            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+            className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
           >
-            <img 
-              src="https://res.cloudinary.com/dzjid2tos/image/upload/v1778106770/lrc-logo_dkumwz.png" 
-              alt="LRC Studio" 
+            <img
+              src="https://res.cloudinary.com/dzjid2tos/image/upload/v1778106770/lrc-logo_dkumwz.png"
+              alt="LRC Studio"
               className="w-full h-full object-contain"
             />
           </button>
 
-          <div className="flex flex-col lg:flex-row lg:items-center gap-0 lg:gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
             <button
               onClick={goHomeOrWarn}
-              className="text-sm lg:text-lg font-bold text-zinc-100 tracking-tight truncate cursor-pointer hover:opacity-80 transition-opacity text-left"
+              className="text-sm font-bold text-zinc-100 tracking-tight cursor-pointer hover:opacity-80 transition-opacity shrink-0"
             >
               {t('app.name')}
             </button>
 
             {isReady ? (
-              <div className="flex items-center gap-1 lg:gap-2 min-w-0">
-                <span className="text-zinc-600 hidden lg:inline">/</span>
+              <>
+                <span className="text-zinc-700 shrink-0">/</span>
                 {editingProjectName ? (
                   <Input
                     type="text"
@@ -126,131 +207,234 @@ export function AppHeader({
                     }}
                     autoFocus
                     maxLength={200}
-                    className="h-6 lg:h-7 text-xs lg:text-sm bg-zinc-800/60 border-zinc-700/60 text-zinc-200 min-w-[100px] max-w-[200px]"
+                    className="h-6 text-xs bg-zinc-800/60 border-zinc-700/60 text-zinc-200 min-w-[100px] max-w-[180px]"
                   />
                 ) : (
                   <button
                     onClick={() => setEditingProjectName(true)}
-                    className="flex items-center gap-1.5 min-w-0 group py-1 -my-1"
+                    className="flex items-center gap-1 min-w-0 group py-1 -my-1"
                     aria-label={t('setup.projectNamePlaceholder')}
                   >
-                    <span className="text-xs lg:text-sm font-medium text-zinc-400 group-hover:text-zinc-200 truncate transition-colors">
+                    <span className="text-xs font-medium text-zinc-400 group-hover:text-zinc-200 truncate transition-colors max-w-[120px] sm:max-w-[200px]">
                       {mediaTitle || t('setup.projectNamePlaceholder')}
                     </span>
-                    <div className="p-1.5 -m-1.5 lg:p-0 lg:m-0">
-                      <Pencil className="w-3 h-3 lg:w-3.5 lg:h-3.5 text-zinc-600 group-hover:text-zinc-400 transition-colors shrink-0" />
-                    </div>
+                    <Pencil className="w-3 h-3 text-zinc-600 group-hover:text-zinc-400 transition-colors shrink-0" />
                   </button>
                 )}
-              </div>
+              </>
+            ) : isSetupPage ? (
+              step > 1 && (
+                <button
+                  onClick={() => setStep(step - 1)}
+                  className="flex items-center gap-1 h-7 px-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 rounded-lg transition-all text-xs font-medium"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{t('common.back') || 'Back'}</span>
+                </button>
+              )
             ) : location.pathname !== '/home' && location.pathname !== '/' && (
-              <div className="flex items-center gap-1 lg:gap-2 min-w-0">
-                <span className="text-zinc-600 hidden lg:inline">/</span>
-                <span className="text-xs lg:text-sm font-medium text-zinc-400 truncate capitalize">
+              <>
+                <span className="text-zinc-700 shrink-0 hidden sm:inline">/</span>
+                <span className="text-xs font-medium text-zinc-400 truncate capitalize hidden sm:block">
                   {location.pathname.split('/')[1].replace(/-/g, ' ')}
                 </span>
-              </div>
+              </>
             )}
           </div>
         </div>
 
-        {/* ── Center: Tips (Hidden on Home) ── */}
-        {!isHomePage && hasTips && (
-          <div className="hidden lg:flex flex-1 items-center justify-center px-8 animate-fade-in pointer-events-none">
-            <div className="flex items-center gap-3 px-4 py-1.5 bg-zinc-900/40 border border-zinc-800/60 rounded-full group pointer-events-auto cursor-help transition-all hover:bg-zinc-800/40 hover:border-zinc-700/60 shadow-inner">
-              <div className="flex items-center gap-1.5 shrink-0">
-                <Lightbulb className="w-3 h-3 text-amber-400/80 group-hover:text-amber-400 transition-colors" />
-              </div>
-              <p className="text-[11px] font-medium text-zinc-400 group-hover:text-zinc-300 transition-colors whitespace-nowrap">
+        {/* ── Center: Tips pill ── */}
+        {!isHomePage && !isSetupPage && hasTips && (
+          <div className="hidden lg:flex flex-1 items-center justify-center px-8 pointer-events-none">
+            <div className="flex items-center gap-2 px-3.5 py-1.5 bg-zinc-900/40 border border-zinc-800/50 rounded-full group pointer-events-auto cursor-help transition-all hover:bg-zinc-800/40 hover:border-zinc-700/60">
+              <Lightbulb className="w-3 h-3 text-amber-400/70 group-hover:text-amber-400 transition-colors shrink-0" />
+              <p className="text-[11px] font-medium text-zinc-500 group-hover:text-zinc-300 transition-colors whitespace-nowrap">
                 {tips[tipIndex]}
               </p>
             </div>
           </div>
         )}
 
-        {/* ── Right-hand nav controls ── */}
-        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-          {/* Hide Editor toggle (desktop, project pages only) */}
-          {isReady && (
+        {/* ── Right: Controls ── */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+
+          {/* Hide editor toggle — desktop, project pages, when lines exist */}
+          {isReady && lines.length > 0 && (
             <Tip content={`${t('app.hideEditor')} (Ctrl+2)`}>
-              <Button
-                variant="outline"
+              <button
                 aria-label={t('app.hideEditor')}
                 onClick={() => {
                   if (focusMode === 'playback') { setFocusMode('default'); setHideEditor(false); }
                   else { setHideEditor(h => !h); }
                 }}
-                className={`${lines.length === 0 ? '!hidden' : 'hidden lg:flex'} px-2 py-1.5 h-auto text-[10px] font-bold border rounded-lg gap-1 flex-shrink-0 transition-colors ${(hideEditor || focusMode === 'playback') ? NAV_ACTIVE : NAV_IDLE
-                  }`}
+                className={`hidden lg:flex h-8 w-8 items-center justify-center rounded-xl transition-colors flex-shrink-0 border text-xs font-bold ${
+                  (hideEditor || focusMode === 'playback')
+                    ? NAV_ACTIVE
+                    : 'bg-zinc-800/60 border-zinc-800/50 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                }`}
               >
-                {(hideEditor || focusMode === 'playback') ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-              </Button>
+                {(hideEditor || focusMode === 'playback') ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
             </Tip>
           )}
 
-          {/* Keyboard shortcuts button — always visible in header */}
-          <Tip content={`${t('shortcuts.title') || 'Keyboard Shortcuts'} (?)`}>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowKeyboardHelp(p => !p)}
-              aria-label={t('shortcuts.title') || 'Keyboard Shortcuts'}
-              className="h-8 w-8 sm:h-9 sm:w-9 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 border border-zinc-700/40 rounded-lg flex-shrink-0 transition-colors"
-            >
-              <HelpCircle className="w-4 h-4" />
-            </Button>
-          </Tip>
+          {/* Grouped icon controls: theme | lang | shortcuts */}
+          <div className="flex items-center bg-zinc-900/60 border border-zinc-800/50 rounded-xl overflow-hidden">
 
-          {/* Unified User Profile Menu */}
-          <Popover onOpenChange={(open) => { if (open) fetchCounts(); }}>
-            <PopoverTrigger className="relative z-[110] h-8 w-8 sm:h-9 sm:w-9 rounded-full overflow-hidden bg-zinc-800/80 hover:bg-zinc-700 border-zinc-700/60 flex-shrink-0 transition-all focus:ring-2 focus:ring-primary/50 cursor-pointer outline-none">
-              {user?.avatarUrl
-                ? <img src={user.avatarUrl} alt={user?.username || user?.email} className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/50 to-accent-purple/50 text-white font-bold text-sm">
-                  {(user?.username || user?.email || '?').charAt(0).toUpperCase()}
-                </div>}
-            </PopoverTrigger>
-            <PopoverContent className="w-[calc(100vw-32px)] sm:w-64 p-0" align="end" sideOffset={8}>
-              <div className="px-3 py-3 border-b border-zinc-800/60 flex flex-col">
-                <span className="text-sm font-bold text-zinc-100 truncate">{user?.username || t('auth.user')}</span>
-                <span className="text-xs text-zinc-400 truncate">{user?.email || ''}</span>
-              </div>
-
-              <div className="p-1 border-b border-zinc-800/60">
-                <PopoverItem onClick={() => { navigate('/profile'); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-3 sm:py-2">
-                  <User className="w-4 h-4 text-zinc-400" />{t('profile.title')}
-                </PopoverItem>
-                <PopoverItem onClick={() => navTo('/library')} className="flex items-center justify-between cursor-pointer font-medium text-sm py-3 sm:py-2">
-                  <span className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-zinc-400" />{t('library.title')}</span>
-                  {counts.library > 0 && <span className="bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full text-[10px] tabular-nums font-bold">{counts.library}</span>}
-                </PopoverItem>
-                <PopoverItem onClick={() => navTo('/uploads')} className="flex items-center justify-between cursor-pointer font-medium text-sm py-3 sm:py-2">
-                  <span className="flex items-center gap-2"><UploadCloud className="w-4 h-4 text-zinc-400" />{t('uploads.title')}</span>
-                  {counts.uploads > 0 && <span className="bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full text-[10px] tabular-nums font-bold">{counts.uploads}</span>}
-                </PopoverItem>
-              </div>
-
-              <div className="p-1 border-b border-zinc-800/60">
-                {user?.role === 'admin' && (
-                  <PopoverItem onClick={() => { navigate('/admin'); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-3 sm:py-2 text-indigo-400 hover:text-indigo-300">
-                    <ShieldAlert className="w-4 h-4" />{t('admin.dashboard.title')}
+            {/* Theme switcher */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className={iconBtn} aria-label={t('settings.theme', 'Theme')} title={t('settings.theme', 'Theme')}>
+                  <ThemeIcon className="w-3.5 h-3.5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-44 p-1" align="end" sideOffset={8}>
+                {THEMES.map(({ id, label, swatch }) => (
+                  <PopoverItem
+                    key={id}
+                    onClick={() => updateSetting?.('interface.theme', id)}
+                    className={`flex items-center gap-2.5 cursor-pointer text-sm py-2 ${currentTheme === id ? 'text-primary' : ''}`}
+                  >
+                    <span className={`w-3 h-3 rounded-full shrink-0 ${swatch}`} />
+                    <span className="flex-1 text-left">{label}</span>
+                    <Check className={`size-3 shrink-0 ${currentTheme === id ? 'text-primary' : 'invisible'}`} />
                   </PopoverItem>
-                )}
-                <PopoverItem onClick={() => { setShowSettings(true); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-3 sm:py-2">
-                  <SettingsIcon className="w-4 h-4 text-zinc-400" />{t('settings.title')}
-                </PopoverItem>
-                <PopoverItem onClick={() => { setShowKeyboardHelp(p => !p); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-3 sm:py-2">
-                  <Kbd>?</Kbd><span className="ml-1">{t('shortcuts.title')}</span>
-                </PopoverItem>
-              </div>
+                ))}
+              </PopoverContent>
+            </Popover>
 
-              <div className="p-1">
-                <PopoverItem onClick={() => { logout(); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-3 sm:py-2 text-red-400 hover:text-red-300">
-                  <LogOut className="w-4 h-4" />{t('auth.logout')}
-                </PopoverItem>
+            <div className="w-px h-4 bg-zinc-800/80 shrink-0" />
+
+            {/* Language switcher */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className={`${iconBtn} gap-0.5 w-auto px-2`} aria-label={t('settings.language', 'Language')} title={t('settings.language', 'Language')}>
+                  <Globe className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-[10px] font-bold tracking-wide">{currentLang}</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-1" align="end" sideOffset={8}>
+                {LANGUAGES.map(({ code, short }) => {
+                  const currentLang = (i18n?.language || 'en').split('-')[0];
+                  const label = getLangLabel(code, currentLang);
+                  const active = currentLang === code;
+                  return (
+                    <PopoverItem
+                      key={code}
+                      onClick={() => i18n?.changeLanguage(code)}
+                      className={`flex items-center gap-2.5 cursor-pointer text-sm py-2 ${active ? 'text-primary' : ''}`}
+                    >
+                      <span className="flex-1 text-left">{label}</span>
+                      <Check className={`size-3 shrink-0 ${active ? 'text-primary' : 'invisible'}`} />
+                    </PopoverItem>
+                  );
+                })}
+              </PopoverContent>
+            </Popover>
+
+            <div className="w-px h-4 bg-zinc-800/80 shrink-0" />
+
+            {/* Keyboard shortcuts */}
+            <Tip content={`${t('shortcuts.title') || 'Keyboard Shortcuts'} (?)`}>
+              <button
+                onClick={() => setShowKeyboardHelp(p => !p)}
+                aria-label={t('shortcuts.title') || 'Keyboard Shortcuts'}
+                className={iconBtn}
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+              </button>
+            </Tip>
+          </div>
+
+          {/* Auth section */}
+          {!user ? (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                onClick={() => {
+                  if ((lines?.length ?? 0) > 0) {
+                    sessionStorage.setItem('pendingGuestSave', '1');
+                    navigate('/auth?action=signin&redirect=/project/local');
+                  } else {
+                    navigate('/auth?action=signin');
+                  }
+                }}
+                className="h-8 px-3 text-xs font-semibold text-zinc-300 hover:text-zinc-100 bg-zinc-800/70 hover:bg-zinc-700/80 border border-zinc-800/50 rounded-xl transition-colors flex-shrink-0"
+              >
+                {t('auth.signIn', 'Sign in')}
+              </button>
+              <div className="relative flex-shrink-0">
+                <button
+                  onClick={() => {
+                    if ((lines?.length ?? 0) > 0) {
+                      sessionStorage.setItem('pendingGuestSave', '1');
+                      navigate('/auth?action=signup&redirect=/project/local');
+                    } else {
+                      navigate('/auth?action=signup');
+                    }
+                  }}
+                  className="h-8 px-3 text-xs font-semibold text-zinc-950 bg-primary hover:bg-primary/90 rounded-xl transition-colors"
+                >
+                  {t('auth.signUp', 'Sign up')}
+                </button>
+                {(lines?.length ?? 0) > 0 && (
+                  <span
+                    className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-primary animate-pulse pointer-events-none"
+                    title={t('auth.signUpToSave', 'Sign up to save your project to the cloud')}
+                  />
+                )}
               </div>
-            </PopoverContent>
-          </Popover>
+            </div>
+          ) : (
+            <Popover onOpenChange={(open) => { if (open) fetchCounts(); }}>
+              <PopoverTrigger className="relative z-[110] h-8 w-8 rounded-full overflow-hidden bg-zinc-800/80 hover:bg-zinc-700 border border-zinc-700/50 flex-shrink-0 transition-all focus:ring-2 focus:ring-primary/50 cursor-pointer outline-none">
+                {user?.avatarUrl
+                  ? <img src={user.avatarUrl} alt={user?.username || user?.email} className="w-full h-full object-cover" />
+                  : <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/50 to-accent-purple/50 text-white font-bold text-sm">
+                    {(user?.username || user?.email || '?').charAt(0).toUpperCase()}
+                  </div>}
+              </PopoverTrigger>
+              <PopoverContent className="w-[calc(100vw-32px)] sm:w-64 p-0" align="end" sideOffset={8}>
+                <div className="px-3 py-3 border-b border-zinc-800/60 flex flex-col">
+                  <span className="text-sm font-bold text-zinc-100 truncate">{user?.username || t('auth.user')}</span>
+                  <span className="text-xs text-zinc-400 truncate">{user?.email || ''}</span>
+                </div>
+
+                <div className="p-1 border-b border-zinc-800/60">
+                  <PopoverItem onClick={() => { navigate('/profile'); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-3 sm:py-2">
+                    <User className="w-4 h-4 text-zinc-400" />{t('profile.title')}
+                  </PopoverItem>
+                  <PopoverItem onClick={() => navTo('/library')} className="flex items-center justify-between cursor-pointer font-medium text-sm py-3 sm:py-2">
+                    <span className="flex items-center gap-2"><BookOpen className="w-4 h-4 text-zinc-400" />{t('library.title')}</span>
+                    {counts.library > 0 && <span className="bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full text-[10px] tabular-nums font-bold">{counts.library}</span>}
+                  </PopoverItem>
+                  <PopoverItem onClick={() => navTo('/uploads')} className="flex items-center justify-between cursor-pointer font-medium text-sm py-3 sm:py-2">
+                    <span className="flex items-center gap-2"><UploadCloud className="w-4 h-4 text-zinc-400" />{t('uploads.title')}</span>
+                    {counts.uploads > 0 && <span className="bg-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full text-[10px] tabular-nums font-bold">{counts.uploads}</span>}
+                  </PopoverItem>
+                </div>
+
+                <div className="p-1 border-b border-zinc-800/60">
+                  {user?.role === 'admin' && (
+                    <PopoverItem onClick={() => { navigate('/admin'); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-3 sm:py-2 text-indigo-400 hover:text-indigo-300">
+                      <ShieldAlert className="w-4 h-4" />{t('admin.dashboard.title')}
+                    </PopoverItem>
+                  )}
+                  <PopoverItem onClick={() => { setShowSettings(true); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-3 sm:py-2">
+                    <SettingsIcon className="w-4 h-4 text-zinc-400" />{t('settings.title')}
+                  </PopoverItem>
+                  <PopoverItem onClick={() => { setShowKeyboardHelp(p => !p); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-3 sm:py-2">
+                    <Kbd>?</Kbd><span className="ml-1">{t('shortcuts.title')}</span>
+                  </PopoverItem>
+                </div>
+
+                <div className="p-1">
+                  <PopoverItem onClick={() => { logout(); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-3 sm:py-2 text-red-400 hover:text-red-300">
+                    <LogOut className="w-4 h-4" />{t('auth.signOut', 'Sign out')}
+                  </PopoverItem>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </div>
     </header>
