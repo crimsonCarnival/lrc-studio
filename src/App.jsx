@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthContext } from './contexts/useAuthContext';
 import { useAppState } from './hooks/useAppState';
@@ -48,6 +48,22 @@ function AppInner() {
     }
   }, [activeProjectId, location.pathname, navigate]);
 
+  // After a guest signs up/in, migrate their localStorage project to the server.
+  // The pendingGuestSave flag is set before navigating to /auth so the intent survives the
+  // full-page reload that AuthPage uses for the redirect back to /project/local.
+  const guestSavePendingRef = useRef(!!sessionStorage.getItem('pendingGuestSave'));
+  useEffect(() => {
+    if (!guestSavePendingRef.current) return;
+    if (!user) return;
+    if (appState.lines.length === 0) return;
+    if (appState.activeProjectId) return;
+    if (appState.isProjectLoading) return;
+
+    guestSavePendingRef.current = false;
+    sessionStorage.removeItem('pendingGuestSave');
+    appState.handleManualSave();
+  }, [user, appState.lines.length, appState.activeProjectId, appState.isProjectLoading, appState.handleManualSave]);
+
   const isProjectPage = location.pathname.startsWith('/project/') && location.pathname !== '/project/new';
   const isSetupPage = location.pathname === '/project/new';
   const isReady = isProjectPage;
@@ -68,30 +84,71 @@ function AppInner() {
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [showNamingModal, setShowNamingModal] = useState(false);
 
-  // Called by SetupScreen when user clicks Next with audio + lyrics
-  const handleSetupComplete = useCallback(({
+  // Called by SetupScreen when user finishes the 3-step setup
+  const handleSetupComplete = useCallback(async ({
     lines,
     editorMode,
     audioSource,
     ytUrl,
     audioName,
-    selectedUpload
+    selectedUpload,
+    name,
+    description,
+    tags,
+    isPublic
   }) => {
     setLines(lines);
     setEditorMode(editorMode);
     setSyncMode(true);
 
-    if (audioName) setMediaTitle(audioName);
+    const effectiveYtUrl = ytUrl || appState.projectYtUrl;
+    let finalTitle = name || audioName || '';
 
-    if (audioSource === 'youtube' && ytUrl) {
-      handleYtUrlChange(ytUrl);
+    if (audioSource === 'youtube' && effectiveYtUrl) {
+      if (ytUrl) handleYtUrlChange(ytUrl);
+      try {
+        const oEmbedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(effectiveYtUrl)}&format=json`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(oEmbedUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.title && !name) finalTitle = data.title;
+        }
+      } catch {
+        // oEmbed failed or timed out — leave finalTitle as-is
+      }
     } else if (audioSource === 'cloud' && selectedUpload) {
       handleCloudinaryUpload(selectedUpload);
     }
 
-    // Show the naming modal so users can set metadata before saving
-    setShowNamingModal(true);
-  }, [setLines, setEditorMode, setSyncMode, setMediaTitle, handleYtUrlChange, handleCloudinaryUpload, setShowNamingModal]);
+    setMediaTitle(finalTitle);
+
+    const newMetadata = { description: description || '', tags: tags || [] };
+    appState.setProjectMetadata(newMetadata);
+
+    if (!user) {
+      // Guest: persist project to localStorage so it survives the auth redirect,
+      // then send the user to auth. The DB record is created only after sign-in/up.
+      await appState.handleManualSave({ title: finalTitle, metadata: newMetadata, isPublic });
+      // Preserve cloudinary/Spotify upload info across the full-page redirect
+      if (selectedUpload && audioSource !== 'youtube') {
+        sessionStorage.setItem('pendingSetupUpload', JSON.stringify(selectedUpload));
+      }
+      sessionStorage.setItem('pendingGuestSave', '1');
+      navigate('/auth?action=signup&redirect=/project/local');
+      return;
+    }
+
+    await appState.handleManualSave({
+      title: finalTitle,
+      metadata: newMetadata,
+      isPublic
+    });
+
+    navigate('/project/local');
+  }, [setLines, setEditorMode, setSyncMode, setMediaTitle, handleYtUrlChange, handleCloudinaryUpload, appState, navigate, user]);
 
   const setFocusMode = useCallback((mode) => {
     updateSetting('interface.focusMode', mode);
