@@ -8,7 +8,7 @@
  * New code should import directly from the service files:
  *   import { authService } from '@/services/auth.service'
  */
-export { setAccessToken, getAccessToken, clearAccessToken, request } from './services/api.client.js';
+export { setAccessToken, getAccessToken, clearAccessToken, request, setAuthFlag } from './services/api.client.js';
 
 import { authService } from './services/auth.service.js';
 import { settingsService } from './services/settings.service.js';
