@@ -200,32 +200,30 @@ export function AppRouter({
                 axis="x"
                 values={items}
                 onReorder={handleReorder}
-                className="flex-1 min-h-0 flex flex-col lg:flex-row gap-0 pt-0 px-0 pb-0 w-full"
+                className="flex-1 min-h-0 flex flex-col lg:flex-row lg:gap-6 gap-0 pt-0 px-0 pb-0 w-full"
               >
                 {items.map((item, index) => {
                   const isEditor = item === 'editor';
                   const isVisible = isEditor ? showEditor : showPreview;
                   if (!isVisible) return null;
 
-                  // On desktop, we use the custom width and enforce hard pixel minimums. On mobile, it's always full width and full height.
-                  const widthStyle = isDesktop ? {
-                    flex: `0 0 ${isEditor ? editorWidth : (100 - editorWidth)}%`,
-                    minWidth: isEditor ? '620px' : '300px'
+                  // On desktop with both panels visible: use percentage-based widths with gap accounting.
+                  // When only one panel is visible: fill the full container (flex:1 1 auto).
+                  // editorWidth is preserved in state so toggling editor back reverts the split.
+                  // minWidth is intentionally omitted — handleResize already clamps percentages to safe minimums.
+                  const bothVisible = showEditor && showPreview;
+                  const widthStyle = isDesktop && bothVisible ? {
+                    flex: `0 0 calc(${isEditor ? editorWidth : (100 - editorWidth)}% - 12px)`,
                   } : {
                     flex: '1 1 auto'
                   };
 
-                  // To have a gap of px-6 (24px) between items on desktop, we give each item px-3 (12px)
-                  const itemPaddingClass = isDesktop && items.length > 1
-                    ? (index === 0 ? 'pr-3' : 'pl-3')
-                    : '';
-
                   return (
                     <Fragment key={item}>
-                      <div className={`flex items-stretch min-h-0 min-w-0 ${itemPaddingClass}`} style={widthStyle}>
+                      <div className="flex items-stretch min-h-0 min-w-0" style={widthStyle}>
                         <Reorder.Item
                           value={item}
-                          layout={isResizing ? false : "position"}
+                          layout={false}
                           dragListener={isDesktop && !lockLayout}
                           whileDrag={{ scale: 1.01, zIndex: 50, boxShadow: "0px 20px 40px rgba(0,0,0,0.4)", opacity: 0.8 }}
                           className={`flex-1 flex flex-col min-h-0 ${isEditor ? 'gap-4' : ''} ${mobileTab !== item ? 'max-lg:hidden' : ''} relative group/reorder lg:border-2 lg:rounded-2xl border-0 rounded-none ${borderClass(item)} transition-colors duration-200 overflow-hidden lg:bg-zinc-900/50 lg:backdrop-blur-sm bg-zinc-950`}
@@ -267,13 +265,13 @@ export function AppRouter({
                         </Reorder.Item>
                       </div>
 
-                      {/* Resize Handle (exactly between items) */}
+                      {/* Resize Handle — overlays the center of the gap-6 (24px) gap */}
                       {isDesktop && !lockLayout && index === 0 && items.length > 1 && (
                         <div
                           onMouseDown={startResizing}
                           onMouseEnter={() => setIsHoveringDivider(true)}
                           onMouseLeave={() => setIsHoveringDivider(false)}
-                          className="w-0 relative cursor-col-resize self-stretch flex items-center justify-center z-[100] group/resizer"
+                          className="w-0 relative cursor-col-resize self-stretch flex items-center justify-center z-[100] group/resizer -mx-3"
                         >
                           {/* Invisible hit area perfectly centered in the gap */}
                           <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center w-12 h-full">
