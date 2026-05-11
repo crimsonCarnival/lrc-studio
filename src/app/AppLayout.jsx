@@ -28,6 +28,8 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
   const { settings, updateSetting } = settingsState;
   const { focusMode, setFocusMode, hideEditor, setHideEditor, mobileTab, setMobileTab, isReady, isPlayerMounted, setUnsavedModalTarget, playerTop, showNamingModal, setShowNamingModal } = layoutState;
 
+  const isSetupPage = location.pathname === '/project/new';
+
   const handleProjectConfirm = useCallback(({ name, description, tags }) => {
     const newTitle = name || mediaTitle || '';
     const newMetadata = { description: description || '', tags: tags || [] };
@@ -76,18 +78,20 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
         i18n={i18n}
       />
 
-      {/* Main Workspace Wrapper */}
-      <div className={`relative z-base flex-1 min-h-0 px-0 lg:px-6 flex flex-col transition-[padding] duration-500 ease-in-out
-        ${
-          location.pathname === '/' ? 'pt-16'
+      <div className={`relative z-base flex-1 min-h-0 ${isSetupPage ? 'px-0' : 'px-0 lg:px-6'} flex flex-col transition-[padding] duration-500 ease-in-out
+        ${location.pathname === '/' ? 'pt-16'
           : (playerTop && isReady && isPlayerMounted) ? 'max-lg:pt-24 lg:pt-[216px]'
-          : 'pt-24 lg:pt-[104px]'
+            : 'pt-24 lg:pt-[104px]'
         }
-        ${isPlayerMounted ? 'max-lg:pb-[240px] lg:pb-[160px]' : 'pb-20 lg:pb-6'}
+        ${isPlayerMounted && isReady
+          ? playerTop
+            ? 'max-lg:pb-[80px] lg:pb-6'
+            : 'max-lg:pb-[240px] lg:pb-[160px]'
+          : 'pb-20 lg:pb-6'
+        }
       `}
-        style={(isPlayerMounted && !playerTop && window.innerWidth >= 1024) ? { marginBottom: '24px' } : undefined}
       >
-        <div className="max-w-[1600px] mx-auto w-full flex-1 flex flex-col min-h-0">
+        <div className={`${isSetupPage ? 'w-full' : 'max-w-[1600px] mx-auto w-full'} flex-1 flex flex-col min-h-0`}>
           {children}
         </div>
       </div>
@@ -143,6 +147,12 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
         handleRestoreProject={handleRestoreProject}
         unsavedModalTarget={layoutState.unsavedModalTarget}
         setUnsavedModalTarget={layoutState.setUnsavedModalTarget}
+        sourceInfo={{
+          ytUrl: appState.projectYtUrl || restoredYtUrl,
+          cloudinary: appState.cloudinaryAudio || restoredCloudinaryUpload,
+          spotifyId: appState.projectSpotifyTrackId,
+          title: mediaTitle || appState.projectYtUrl || restoredYtUrl || ''
+        }}
       />
     </div>
   );
