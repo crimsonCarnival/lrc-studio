@@ -51,6 +51,7 @@ export function useAppState(user) {
   const [duration, setDuration] = useState(0);
   const [mediaTitle, setMediaTitle] = useState('');
   const [projectMetadata, setProjectMetadata] = useState({ description: '', tags: [] });
+  const [forkedFrom, setForkedFrom] = useState(null);
   const [hasMedia, setHasMedia] = useState(false);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -171,7 +172,7 @@ export function useAppState(user) {
           })).filter((w) => w.word) : undefined,
         }));
         setLines(validLines);
-        setSyncMode(parsed.syncMode ?? true);
+        setSyncMode(validLines.length > 0 ? true : (parsed.syncMode ?? true));
         const idx = parsed.activeLineIndex;
         if (typeof idx === 'number' && idx >= 0 && idx < validLines.length) {
           setActiveLineIndex(idx);
@@ -206,7 +207,7 @@ export function useAppState(user) {
             secondaryWords: l.secondaryWords,
           }));
           setLines(serverLines);
-          setSyncMode(project.state?.syncMode ?? true);
+          setSyncMode(serverLines.length > 0 ? true : (project.state?.syncMode ?? true));
           setActiveLineIndex(project.state?.activeLineIndex || 0);
           setEditorModeRaw(project.lyrics?.editorMode || 'lrc');
           if (project.upload?.youtubeUrl) setRestoredYtUrl(project.upload.youtubeUrl);
@@ -222,6 +223,7 @@ export function useAppState(user) {
               tags: project.metadata.tags || [],
             });
           }
+          setForkedFrom(project.forkedFrom || null);
           saveServerSnapshot({
             title: project.title || '',
             metadata: project.metadata || { description: '', tags: [] },
@@ -248,7 +250,8 @@ export function useAppState(user) {
           setActiveProjectId(null);
           try {
             localStorage.removeItem(ACTIVE_PROJECT_ID_KEY);
-            localStorage.removeItem(PROJECT_KEY);
+            // DO NOT remove PROJECT_KEY — if the server project is missing,
+            // we want to preserve the local work so they can save it again.
           } catch { /* ignore */ }
         })
         .finally(() => setIsProjectLoading(false));
@@ -308,6 +311,7 @@ export function useAppState(user) {
       if (typeof parsed.playbackSpeed === 'number') setRestoredSpeed(parsed.playbackSpeed);
       if (parsed.title) setMediaTitle(parsed.title);
       if (parsed.metadata) setProjectMetadata(parsed.metadata);
+      if (parsed.forkedFrom) setForkedFrom(parsed.forkedFrom);
     } catch (e) {
       console.error('Guest localStorage restore failed', e);
     }
@@ -320,6 +324,23 @@ export function useAppState(user) {
         sessionStorage.removeItem('pendingSetupUpload');
       }
     } catch { /* ignore */ }
+  // ——— Migration Detection (Guest -> Auth) ———
+  // If the user just logged in and has local data but no active project ID,
+  // trigger the restoration prompt.
+  useEffect(() => {
+    if (user && !user.isGuest && !activeProjectId && !pendingProject) {
+      try {
+        const saved = localStorage.getItem(PROJECT_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.lines?.length > 0) {
+            setPendingProject(parsed);
+          }
+        }
+      } catch { /* ignore */ }
+    }
+  }, [user, activeProjectId, pendingProject]);
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -371,7 +392,7 @@ export function useAppState(user) {
   }, [searchParams, setRestoredPosition, setSharedReadOnly]);
 
   // ——— Manual save, payload building, import-save trigger ———
-  const { handleManualSave, triggerImportSave, buildProjectPayload } = useManualSave({
+  const { handleManualSave, triggerImportSave, buildProjectPayload, handleGuestSave } = useManualSave({
     settings,
     lines,
     syncMode,
@@ -395,6 +416,7 @@ export function useAppState(user) {
     setIsAutosaving,
     setIsSaving,
     setActiveProjectId,
+    setForkedFrom,
     onSaveSuccess: callAfterSave,
   });
 
@@ -426,6 +448,7 @@ export function useAppState(user) {
     setDuration,
     setIsProjectLoading,
     setPendingProject,
+    setForkedFrom,
     activeProjectId,
     activeProjectIdRef,
     lastServerSnapshotRef,
@@ -437,6 +460,7 @@ export function useAppState(user) {
     t,
     toast,
     requestConfirm,
+    isCreatingProjectRef,
   });
 
 
@@ -452,7 +476,14 @@ export function useAppState(user) {
           duration,
           srtConfig: settings.editor?.srt,
         }).then(({ lines: inferred }) => {
-          setLines(inferred);
+          setLines(prev =>
+            prev.map((line, i) => {
+              const inf = inferred[i];
+              if (!inf) return line;
+              // Preserve word-level data (readings + word timestamps) — server only infers endTime
+              return { ...inf, words: line.words, secondaryWords: line.secondaryWords };
+            })
+          );
         }).catch((err) => {
           console.error('Failed to infer end times', err);
         });
@@ -485,7 +516,8 @@ export function useAppState(user) {
     updateServerSnapshot: saveServerSnapshot,
     setActiveProjectId,
     setIsAutosaving,
-    isProjectLoading,
+    isProjectLoadingRef,
+    setForkedFrom,
     onSaveSuccess: callAfterSave,
   });
 
@@ -618,19 +650,13 @@ export function useAppState(user) {
     const cloneId = params.get('clone');
     const projId = params.get('projectId');
     
-    if (cloneId && getAccessToken()) {
-      // Remove query param
+    if (cloneId) {
+      // Redirect legacy clone param to the new dedicated route
       const newUrl = new URL(window.location);
       newUrl.searchParams.delete('clone');
       window.history.replaceState(null, '', newUrl.toString());
-      
-      projects.clone(cloneId).then(res => {
-        loadProject(res.projectId);
-        toast.success(t('project.cloneSuccess') || 'Project copied successfully!');
-      }).catch(err => {
-        console.error('Failed to clone project:', err);
-        toast.error(t('project.cloneFailed') || 'Failed to copy project');
-      });
+      window.location.href = `/project/fork/${cloneId}`;
+      return;
     } else if (projId && getAccessToken()) {
       // Remove query param
       const newUrl = new URL(window.location);
@@ -663,6 +689,8 @@ export function useAppState(user) {
     setMediaTitle,
     projectMetadata,
     setProjectMetadata,
+    forkedFrom,
+    setForkedFrom,
     hasMedia,
     showKeyboardHelp,
     setShowKeyboardHelp,
@@ -677,6 +705,7 @@ export function useAppState(user) {
     playerRef,
     langMenuRef,
     handleManualSave,
+    handleGuestSave,
     triggerImportSave,
     handleRestoreProject,
     handleDiscardProject,
