@@ -65,7 +65,8 @@ export const DEFAULT_SETTINGS = {
     playerTop: false,
     editorWidth: 50,
     lockLayout: false,
-    mobileTab: 'editor'
+    mobileTab: 'editor',
+    toastPosition: 'bottom-right'
   },
   shortcuts: {
     mark: ['Enter'],
