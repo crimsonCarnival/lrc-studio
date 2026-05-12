@@ -119,6 +119,14 @@ export default function Library({ onOpenProject, onBack }) {
                   <span className="text-[10px] font-bold uppercase text-zinc-500 bg-zinc-700/50 px-1.5 py-0.5 rounded flex-shrink-0">
                     {project.editorMode}
                   </span>
+                  {project.forkedFrom?.projectId && (
+                    <Tip content={project.forkedFrom.username ? t('share.forkedFrom', { username: project.forkedFrom.username, defaultValue: `Forked from {{username}}` }) : t('share.forkedProject', 'Forked project')}>
+                      <span className="text-[10px] font-bold uppercase text-accent-blue bg-accent-blue/10 border border-accent-blue/20 px-1.5 py-0.5 rounded flex-shrink-0 flex items-center gap-1">
+                        <ExternalLink className="w-2.5 h-2.5" />
+                        {t('share.forkedBadge', 'Forked')}
+                      </span>
+                    </Tip>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3 mt-1">
