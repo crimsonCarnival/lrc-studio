@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@ui/toggle-group';
 import { Tip } from '@ui/tip';
@@ -32,6 +33,7 @@ const ActionsDropdown = ({ children, icon: Icon = MoreHorizontal, label }) => {
 };
 
 export default function EditorToolbar({
+  user,
   editorMode,
   setEditorMode,
   updateSetting,
@@ -46,14 +48,19 @@ export default function EditorToolbar({
   setRawText,
   setSyncMode,
   handleManualSave,
+  handleGuestSave,
   handleRemoveAllLyrics,
   isAutosaving,
   isSaving,
   overlappingLines,
   onNewProject,
   onShowKeyboardHelp,
+  activeLineIndex,
+  activeWordIndex,
+  stampTarget,
 }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const hasAnyTimestamp = useMemo(() => lines.some((l) => l.timestamp != null), [lines]);
 
   const syncProgress = useMemo(() => {
@@ -61,8 +68,15 @@ export default function EditorToolbar({
     const synced = lines.filter(l => l.timestamp != null).length;
     const wordCount = lines.reduce((acc, l) => acc + (l.text ? l.text.trim().split(/\s+/).filter(Boolean).length : 0), 0);
     const charCount = lines.reduce((acc, l) => acc + (l.text ? l.text.length : 0), 0);
-    return { synced, total: lines.length, wordCount, charCount };
-  }, [lines]);
+
+    // Active line word progress for Words mode
+    const activeLine = lines[activeLineIndex];
+    const activeWords = stampTarget === 'secondary' ? activeLine?.secondaryWords : activeLine?.words;
+    const totalWordsInLine = activeWords?.length || 0;
+    const currentWordNum = activeWordIndex !== -1 ? Math.min(activeWordIndex + 1, totalWordsInLine) : 0;
+
+    return { synced, total: lines.length, wordCount, charCount, totalWordsInLine, currentWordNum };
+  }, [lines, activeLineIndex, activeWordIndex, stampTarget]);
 
   if (!syncMode) return null;
 
@@ -118,19 +132,34 @@ export default function EditorToolbar({
                 <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
                   syncProgress.synced === syncProgress.total ? 'bg-primary' : 'bg-zinc-700'
                 }`} />
-                {syncProgress.synced}/{syncProgress.total}
+                {editorMode === 'words' && syncProgress.totalWordsInLine > 0 ? (
+                  <span>{syncProgress.currentWordNum}/{syncProgress.totalWordsInLine}</span>
+                ) : (
+                  <span>{syncProgress.synced}/{syncProgress.total}</span>
+                )}
                 <span className="text-zinc-600 hidden sm:inline">·</span>
                 <span className="text-zinc-600 hidden sm:inline">{syncProgress.wordCount}w</span>
               </div>
             </Tip>
           )}
 
-          {handleManualSave && !settings.advanced?.autoSave?.enabled && (
+          {handleManualSave && (!settings.advanced?.autoSave?.enabled || !user) && (
             <Tip content={isSaving ? (t('project.saving') || 'Saving…') : isAutosaving ? (t('project.saved') || 'Saved') : (t('project.save') || 'Save')}>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={handleManualSave}
+                onClick={async () => {
+                  if (!user) {
+                    try {
+                      await handleGuestSave();
+                      navigate(`/auth?action=signin&redirect=${encodeURIComponent('/project/local?claim=true')}`);
+                    } catch {
+                      // toast already shown by handleGuestSave — abort navigation
+                    }
+                  } else {
+                    handleManualSave();
+                  }
+                }}
                 disabled={isSaving}
                 className={`flex-shrink-0 h-8 w-8 transition-colors ${
                   isSaving ? 'text-zinc-400' : isAutosaving ? 'text-primary' : 'text-zinc-400'
