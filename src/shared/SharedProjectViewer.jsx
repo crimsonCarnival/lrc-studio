@@ -5,12 +5,12 @@ import { SettingsProvider } from '@/contexts/SettingsContext';
 import { TooltipProvider } from '@ui/tooltip';
 import { Spinner } from '@ui/skeleton';
 import { Button } from '@ui/button';
-import toast from 'react-hot-toast';
-import { projects, getAccessToken } from '@/api';
+import { projects } from '@/api';
 import Player from '@features/player/Player';
 import Preview from '@features/preview/Preview';
 import SharedProjectError from './SharedProjectError';
-import { LogIn, UserPlus, Music2, Copy, Check } from 'lucide-react';
+import { LogIn, UserPlus, Music2, Copy, Check, ExternalLink } from 'lucide-react';
+import { Tip } from '@ui/tip';
 import { useAuthContext } from '@/contexts/useAuthContext';
 import { AppHeader } from '@/app/layout/AppHeader';
 import { usePageTitle } from '@/hooks/usePageTitle';
@@ -34,7 +34,7 @@ function SharedProjectViewerInner({ projectId }) {
   };
   const startTime = getStartTime();
   const [hasMedia, setHasMedia] = useState(false);
-  const { user, logout } = useAuthContext();
+  const { user, logout, loading } = useAuthContext();
 
   // Clear query params after initial parse to prevent "reload to seek" tricks
   useEffect(() => {
@@ -59,7 +59,6 @@ function SharedProjectViewerInner({ projectId }) {
   // ── Fetch state ──
   const [loadStatus, setLoadStatus] = useState('loading'); // 'loading' | 'ok' | 403 | 404
   const [projectData, setProjectData] = useState(null);
-  const [isCloning, setIsCloning] = useState(false);
   const [copied, setCopied] = useState(false);
   const playerRef = useRef(null);
 
@@ -69,8 +68,12 @@ function SharedProjectViewerInner({ projectId }) {
   useEffect(() => {
     let cancelled = false;
     projects.getShare(projectId)
-      .then(({ project }) => {
+      .then((result) => {
         if (cancelled) return;
+        const project = result?.project;
+        console.log('[SharedProjectViewer] getShare result:', result);
+        console.log('[SharedProjectViewer] project.upload:', project?.upload);
+        console.log('[SharedProjectViewer] project.uploadId:', project?.uploadId);
         if (!project) {
           setLoadStatus(404);
           return;
@@ -87,11 +90,13 @@ function SharedProjectViewerInner({ projectId }) {
         }));
         setLines(rawLines);
         setEditorMode(project.lyrics?.editorMode || 'lrc');
-        setMediaTitle(project.title || '');
+        setMediaTitle(project.upload?.title || project.title || '');
         setProjectData(project);
-        if (project.upload?.youtubeUrl) {
+        if (project.upload?.source === 'youtube' && project.upload?.youtubeUrl) {
           setInitialYtUrl(project.upload.youtubeUrl);
-        } else if (project.upload?.source === 'cloudinary' || project.upload?.cloudinaryUrl) {
+        } else if (project.upload) {
+          // Handle cloudinary and spotify via initialCloudinaryUpload
+          // Player checks upload.source to determine how to play
           setInitialCloudinaryUpload(project.upload);
         }
         setLoadStatus('ok');
@@ -106,36 +111,18 @@ function SharedProjectViewerInner({ projectId }) {
   const handleTimeUpdate = useCallback((t) => setPlaybackPosition(t), []);
   const handleMediaChange = useCallback((v) => setHasMedia(v), []);
 
-  // ── Redirect helpers ──
-  const redirectUrl = `/share/${projectId}`;
-  
   // ── Clone project handler ──
-  const handleClone = useCallback(async () => {
-    if (user || getAccessToken()) {
-      // Already logged in - clone directly
-      setIsCloning(true);
-      try {
-        const result = await projects.clone(projectId);
-        toast.success(t('project.cloneSuccess') || 'Project copied successfully!');
-        // Redirect to the new project
-        window.location.href = `/project/${result.projectId}`;
-      } catch (err) {
-        console.error('Failed to clone project:', err);
-        toast.error(t('project.cloneFailed') || 'Failed to copy project');
-        setIsCloning(false);
-      }
-    } else {
-      localStorage.setItem('lrc-syncer-redirect', window.location.pathname + window.location.hash);
-      const returnUrl = `/share/${projectId}?clone=1`;
-      window.location.href = `/auth?action=signin&redirect=${encodeURIComponent(returnUrl)}`;
-    }
-  }, [projectId, user]);
+  const handleClone = useCallback(() => {
+    window.location.href = `/project/fork/${projectId}`;
+  }, [projectId]);
 
   useEffect(() => {
-    if ((user || getAccessToken()) && searchParams.get('clone') === '1' && !isCloning) {
+    if (loading) return;
+    
+    if (searchParams.get('clone') === '1') {
       handleClone();
     }
-  }, [user, searchParams, handleClone, isCloning]);
+  }, [loading, searchParams, handleClone]);
 
   const handleCopyLink = useCallback(() => {
     navigator.clipboard.writeText(window.location.href);
@@ -190,13 +177,50 @@ function SharedProjectViewerInner({ projectId }) {
 
       {/* ── Preview (flex-1) ── */}
       <div className="relative z-base flex-1 min-h-0 px-2 sm:px-4 lg:px-6 py-4 lg:pb-0 flex flex-col">
-        {/* Author info bar */}
-        <div className="flex items-center gap-2 mb-3 px-2">
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-zinc-900/50 border border-zinc-800/80 text-[10px] sm:text-xs font-medium text-zinc-400">
-            <Music2 className="w-3 h-3 text-primary" />
-            <span>{t('share.by', 'by')} <span className="text-zinc-200">{projectData?.user?.username || t('share.guest', 'Guest')}</span></span>
-            <span className="w-1 h-1 rounded-full bg-zinc-700 mx-1" />
-            <span>{projectData?.createdAt ? new Date(projectData.createdAt).toLocaleDateString() : ''}</span>
+        {/* Project Metadata Section */}
+        <div className="px-2 mb-6 animate-fade-in flex flex-col sm:flex-row sm:items-start justify-between gap-6">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-3 mb-3">
+              <h1 className="text-2xl sm:text-3xl font-bold text-zinc-100 tracking-tight leading-tight">
+                {projectData?.title || t('library.untitled')}
+              </h1>
+              {/* Author info inline */}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900/50 border border-zinc-800/80 text-[10px] sm:text-xs font-medium text-zinc-400 shrink-0">
+                <Music2 className="w-3.5 h-3.5 text-primary" />
+                <span>{t('share.by')} <span className="text-zinc-200">{projectData?.user?.username || t('share.guest')}</span></span>
+                {projectData?.createdAt && (
+                  <>
+                    <span className="w-1 h-1 rounded-full bg-zinc-700 mx-1" />
+                    <span>{new Date(projectData.createdAt).toLocaleDateString()}</span>
+                  </>
+                )}
+              </div>
+              {projectData?.forkedFrom && (
+                <Tip content={projectData.forkedFrom.username ? t('share.forkedFrom', { username: projectData.forkedFrom.username, defaultValue: `Forked from {{username}}` }) : t('share.forkedProject', 'Forked project')}>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent-blue/10 border border-accent-blue/20 text-[10px] sm:text-xs font-bold text-accent-blue uppercase shrink-0">
+                    <ExternalLink className="w-3 h-3" />
+                    <span>{t('share.forkedBadge', 'Forked')}</span>
+                  </div>
+                </Tip>
+              )}
+            </div>
+            {/* Description */}
+            <p className="text-sm sm:text-base text-zinc-400 max-w-3xl leading-relaxed">
+              {projectData?.metadata?.description || t('share.noDescription')}
+            </p>
+          </div>
+
+          {/* Tags on the right */}
+          <div className="flex flex-wrap gap-2 sm:justify-end sm:max-w-[40%]">
+            {projectData?.metadata?.tags?.length > 0 ? (
+              projectData.metadata.tags.map((tag, i) => (
+                <span key={i} className="px-2.5 py-1 rounded-lg bg-zinc-800/60 border border-zinc-700/50 text-[10px] sm:text-xs text-zinc-300 font-medium tracking-wide">
+                  {tag}
+                </span>
+              ))
+            ) : (
+              <span className="text-xs text-zinc-600 italic">{t('share.noTags')}</span>
+            )}
           </div>
         </div>
 
@@ -287,20 +311,10 @@ function SharedProjectViewerInner({ projectId }) {
             <Button
               size="sm"
               onClick={handleClone}
-              disabled={isCloning}
-              className="h-8 px-3 bg-primary hover:bg-primary-dim text-zinc-950 text-xs font-semibold gap-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-8 px-3 bg-primary hover:bg-primary-dim text-zinc-950 text-xs font-semibold gap-1.5 rounded-lg disabled:opacity-50"
             >
-              {isCloning ? (
-                <>
-                  <Spinner size={14} className="w-3.5 h-3.5" />
-                  {t('share.creating', 'Creating...')}
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5" />
-                  {t('share.createCopy', 'Create Copy')}
-                </>
-              )}
+              <Copy className="w-3.5 h-3.5" />
+              {t('share.createCopy', 'Create Copy')}
             </Button>
           </div>
         </div>
