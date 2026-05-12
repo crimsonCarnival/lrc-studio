@@ -212,14 +212,16 @@ export function SettingsProvider({ children }) {
   const updateSetting = useCallback((keyPath, value) => {
     setSettings((prev) => {
       const keys = keyPath.split('.');
-      const nextSettings = structuredClone(prev);
-      let current = nextSettings;
+      // Shallow-clone only the touched branch rather than deep-cloning the full
+      // settings tree on every keystroke or mode switch.
+      const next = { ...prev };
+      let cursor = next;
       for (let i = 0; i < keys.length - 1; i++) {
-        if (!current[keys[i]]) current[keys[i]] = {};
-        current = current[keys[i]];
+        cursor[keys[i]] = { ...cursor[keys[i]] };
+        cursor = cursor[keys[i]];
       }
-      current[keys[keys.length - 1]] = value;
-      return nextSettings;
+      cursor[keys[keys.length - 1]] = value;
+      return next;
     });
   }, []);
 
