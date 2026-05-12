@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '@/contexts/useSettings';
@@ -9,8 +9,6 @@ import { matchKey } from '@/utils/keyboard';
 export function usePreview({ lines, setLines, playbackPosition, playerRef, duration, mediaTitle, editorMode }) {
   const { t } = useTranslation();
   const { settings } = useSettings();
-  const containerRef = useRef(null);
-  const activeRef = useRef(null);
 
   const [showMenu, setShowMenu] = useState(false);
   const [pastingType, setPastingType] = useState(null);
@@ -114,24 +112,6 @@ export function usePreview({ lines, setLines, playbackPosition, playerRef, durat
     return bestIdx;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines, playbackPosition, editorMode]);
-
-  // Scroll-to-active is now handled by PreviewViewport's virtualizer (scrollToIndex).
-  // The ref-based fallback below is kept only for dual-line mode where the
-  // virtualizer is inactive and activeRef still applies.
-  useEffect(() => {
-    if (!activeRef.current || !containerRef.current) return;
-    if (settings.editor?.scroll?.alignment === 'none') return;
-    const container = containerRef.current;
-    const element = activeRef.current;
-    const containerRect = container.getBoundingClientRect();
-    const elementRect = element.getBoundingClientRect();
-    if (elementRect.top >= containerRect.top && elementRect.bottom <= containerRect.bottom) return;
-    const elementTop = elementRect.top - containerRect.top + container.scrollTop;
-    container.scrollTo({
-      top: elementTop - containerRect.height / 2 + elementRect.height / 2,
-      behavior: settings.editor?.scroll?.mode || 'smooth',
-    });
-  }, [settings.editor?.scroll?.mode, settings.editor?.scroll?.alignment]);
 
   const hasSyncedLines = syncedIndices.length > 0;
   const hasTranslations = lines.some(l => l.translation);
@@ -306,8 +286,6 @@ export function usePreview({ lines, setLines, playbackPosition, playerRef, durat
   return {
     t,
     settings,
-    containerRef,
-    activeRef,
     showMenu,
     setShowMenu,
     pastingType,
