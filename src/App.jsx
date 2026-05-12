@@ -49,8 +49,8 @@ function AppInner() {
   }, [activeProjectId, location.pathname, navigate]);
 
   // After a guest signs up/in, migrate their localStorage project to the server.
-  // The pendingGuestSave flag is set before navigating to /auth so the intent survives the
-  // full-page reload that AuthPage uses for the redirect back to /project/local.
+  // The pendingGuestSave flag is set either from setup completion or when a guest
+  // clicks "Save" inside the editor and navigates to /auth from there.
   const guestSavePendingRef = useRef(!!sessionStorage.getItem('pendingGuestSave'));
   useEffect(() => {
     if (!guestSavePendingRef.current) return;
@@ -129,15 +129,11 @@ function AppInner() {
     appState.setProjectMetadata(newMetadata);
 
     if (!user) {
-      // Guest: persist project to localStorage so it survives the auth redirect,
-      // then send the user to auth. The DB record is created only after sign-in/up.
+      // Guest: handleManualSave is already localStorage-only when no token exists.
+      // Set a flag so the post-login migration effect picks it up and syncs to DB.
       await appState.handleManualSave({ title: finalTitle, metadata: newMetadata, isPublic });
-      // Preserve cloudinary/Spotify upload info across the full-page redirect
-      if (selectedUpload && audioSource !== 'youtube') {
-        sessionStorage.setItem('pendingSetupUpload', JSON.stringify(selectedUpload));
-      }
       sessionStorage.setItem('pendingGuestSave', '1');
-      navigate('/auth?action=signup&redirect=/project/local');
+      navigate('/project/local');
       return;
     }
 
