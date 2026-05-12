@@ -238,19 +238,7 @@ export function useAppState(user) {
             lines: serverLines,
             uploadId: project.upload?.id,
           });
-
-          // Sync server data to localStorage for offline access
-          try {
-            localStorage.setItem(PROJECT_KEY, JSON.stringify({
-              lines: serverLines,
-              syncMode: project.state?.syncMode ?? true,
-              activeLineIndex: project.state?.activeLineIndex || 0,
-              editorMode: project.lyrics?.editorMode || 'lrc',
-              ytUrl: project.upload?.youtubeUrl || '',
-              playbackPosition: project.state?.playbackPosition || 0,
-              playbackSpeed: project.state?.playbackSpeed || 1,
-            }));
-          } catch { /* ignore localStorage errors */ }
+          // Auth users are server-only — do NOT sync server data back to localStorage.
         })
         .catch((err) => {
           // Server failed (404, network error, etc.) — stale project ID, clear it
@@ -276,8 +264,64 @@ export function useAppState(user) {
   // Keep isProjectLoadingRef in sync for the beforeunload guard
   useEffect(() => { isProjectLoadingRef.current = isProjectLoading; }, [isProjectLoading]);
 
-
-
+  // ——— Guest silent restore (no activeProjectId, no auth) ———
+  // When a guest visits /project/local or refreshes, restore their last session from localStorage.
+  const guestRestoreRan = useRef(false);
+  useEffect(() => {
+    if (guestRestoreRan.current) return;
+    if (getAccessToken()) return; // auth users restore from server
+    if (activeProjectId) return;  // handled by the silent restore effect above
+    if (window.location.hash.startsWith('#s=')) return; // shared project
+    guestRestoreRan.current = true;
+    try {
+      const saved = localStorage.getItem(PROJECT_KEY);
+      if (!saved) return;
+      const parsed = JSON.parse(saved);
+      const validLines = (parsed.lines || [])
+        .filter((l) => l && typeof l === 'object' && typeof l.text === 'string')
+        .map((l) => ({
+          text: l.text,
+          timestamp: typeof l.timestamp === 'number' && isFinite(l.timestamp) ? l.timestamp : null,
+          endTime: typeof l.endTime === 'number' && isFinite(l.endTime) ? l.endTime : undefined,
+          secondary: typeof l.secondary === 'string' ? l.secondary : '',
+          translation: typeof l.translation === 'string' ? l.translation : '',
+          id: typeof l.id === 'string' ? l.id : crypto.randomUUID(),
+          words: Array.isArray(l.words) ? l.words.map((w) => ({
+            word: typeof w.word === 'string' ? w.word : '',
+            time: typeof w.time === 'number' && isFinite(w.time) ? w.time : null,
+            ...(typeof w.reading === 'string' && w.reading ? { reading: w.reading } : {}),
+          })).filter((w) => w.word) : undefined,
+        }));
+      if (validLines.length === 0) return;
+      setLines(validLines);
+      setSyncMode(parsed.syncMode ?? true);
+      const idx = parsed.activeLineIndex;
+      if (typeof idx === 'number' && idx >= 0 && idx < validLines.length) {
+        setActiveLineIndex(idx);
+      }
+      setEditorModeRaw(parsed.editorMode || 'lrc');
+      if (parsed.ytUrl) {
+        setRestoredYtUrl(parsed.ytUrl);
+        setProjectYtUrl(parsed.ytUrl); // ensure save payload includes the URL
+      }
+      if (typeof parsed.playbackPosition === 'number') setRestoredPosition(parsed.playbackPosition);
+      if (typeof parsed.playbackSpeed === 'number') setRestoredSpeed(parsed.playbackSpeed);
+      if (parsed.title) setMediaTitle(parsed.title);
+      if (parsed.metadata) setProjectMetadata(parsed.metadata);
+    } catch (e) {
+      console.error('Guest localStorage restore failed', e);
+    }
+    // Restore cloudinary/Spotify upload info saved before the auth redirect
+    try {
+      const raw = sessionStorage.getItem('pendingSetupUpload');
+      if (raw) {
+        const upload = JSON.parse(raw);
+        setCloudinaryAudio(upload);
+        sessionStorage.removeItem('pendingSetupUpload');
+      }
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ——— Shared project (hash decode, fork guard, export-to-URL) ———
   const {
@@ -292,6 +336,8 @@ export function useAppState(user) {
     setActiveLineIndex,
     setEditorModeRaw,
     setRestoredYtUrl,
+    setRestoredCloudinaryUpload,
+    setProjectSpotifyTrackId,
     setRestoredPosition,
     setRestoredSpeed,
     setIsProjectLoading,
@@ -307,6 +353,8 @@ export function useAppState(user) {
     projectYtUrl,
     cloudinaryAudio,
     projectSpotifyTrackId,
+    restoredYtUrl,
+    restoredCloudinaryUpload,
   });
 
   // Handle Playback Time (s) and Readonly params on mount
