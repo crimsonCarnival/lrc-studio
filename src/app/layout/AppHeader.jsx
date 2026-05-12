@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   UploadCloud, Settings as SettingsIcon, LogOut, BookOpen, Pencil,
   ShieldAlert, Eye, EyeOff, User, HelpCircle, Lightbulb, ArrowLeft, Check,
-  Sun, Moon, Monitor, Palette, Globe
+  Sun, Moon, Monitor, Palette, Globe, ExternalLink
 } from 'lucide-react';
 import { useSetupContext } from '@/contexts/SetupContext';
 import { Button } from '@ui/button';
@@ -42,11 +42,15 @@ function getLangLabel(code, currentLang) {
   return `${native} (${translated})`;
 }
 
-function getThemeIcon(theme) {
-  if (theme === 'light' || theme === 'alucardlight') return Sun;
-  if (theme === 'system') return Monitor;
-  return Moon;
-}
+// Resolved outside render so ESLint doesn't flag it as a component created during render
+const THEME_ICONS = {
+  system: Monitor,
+  dark: Moon,
+  light: Sun,
+  dracula: Moon,
+  alucard: Moon,
+  alucardlight: Sun,
+};
 
 export function AppHeader({
   user,
@@ -55,9 +59,11 @@ export function AppHeader({
   lines,
   mediaTitle,
   setMediaTitle,
+  handleManualSave,
   triggerImportSave,
   hasUnsavedChanges,
   activeProjectId,
+  forkedFrom,
   setShowSettings,
   setShowKeyboardHelp,
   focusMode,
@@ -80,7 +86,6 @@ export function AppHeader({
   const isHomePage = location.pathname === '/home' || location.pathname === '/';
 
   const currentTheme = settings?.interface?.theme || 'dark';
-  const ThemeIcon = getThemeIcon(currentTheme);
   const currentLang = (i18n?.language || 'en').slice(0, 2).toUpperCase();
 
   const fetchCounts = async () => {
@@ -221,6 +226,14 @@ export function AppHeader({
                     <Pencil className="w-3 h-3 text-zinc-600 group-hover:text-zinc-400 transition-colors shrink-0" />
                   </button>
                 )}
+                {forkedFrom?.projectId && (
+                  <Tip content={forkedFrom.username ? t('share.forkedFrom', { username: forkedFrom.username, defaultValue: `Forked from {{username}}` }) : t('share.forkedProject', 'Forked project')}>
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-accent-blue/10 border border-accent-blue/20 text-[9px] font-bold text-accent-blue uppercase shrink-0 cursor-help transition-colors hover:bg-accent-blue/20">
+                      <ExternalLink className="w-2.5 h-2.5" />
+                      <span className="hidden xs:inline">{t('share.forkedBadge', 'Forked')}</span>
+                    </div>
+                  </Tip>
+                )}
               </>
             ) : isSetupPage ? (
               step > 1 && (
@@ -285,7 +298,7 @@ export function AppHeader({
             <Popover>
               <PopoverTrigger asChild>
                 <button className={iconBtn} aria-label={t('settings.theme', 'Theme')} title={t('settings.theme', 'Theme')}>
-                  <ThemeIcon className="w-3.5 h-3.5" />
+                  {(() => { const TI = THEME_ICONS[currentTheme] || Moon; return <TI className="w-3.5 h-3.5" />; })()}
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-44 p-1" align="end" sideOffset={8}>
@@ -314,7 +327,7 @@ export function AppHeader({
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-48 p-1" align="end" sideOffset={8}>
-                {LANGUAGES.map(({ code, short }) => {
+                {LANGUAGES.map(({ code }) => {
                   const currentLang = (i18n?.language || 'en').split('-')[0];
                   const label = getLangLabel(code, currentLang);
                   const active = currentLang === code;
@@ -352,6 +365,9 @@ export function AppHeader({
               <button
                 onClick={() => {
                   if ((lines?.length ?? 0) > 0) {
+                    // Snapshot current state to localStorage before navigating — autosave
+                    // may not have fired yet (e.g. guest pasted lyrics and clicked Save immediately).
+                    handleManualSave?.();
                     sessionStorage.setItem('pendingGuestSave', '1');
                     navigate('/auth?action=signin&redirect=/project/local');
                   } else {
@@ -366,10 +382,11 @@ export function AppHeader({
                 <button
                   onClick={() => {
                     if ((lines?.length ?? 0) > 0) {
+                      handleManualSave?.();
                       sessionStorage.setItem('pendingGuestSave', '1');
-                      navigate('/auth?action=signup&redirect=/project/local');
+                      navigate('/auth/signup?redirect=/project/local');
                     } else {
-                      navigate('/auth?action=signup');
+                      navigate('/auth/signup');
                     }
                   }}
                   className="h-8 px-3 text-xs font-semibold text-zinc-950 bg-primary hover:bg-primary/90 rounded-xl transition-colors"
@@ -428,7 +445,10 @@ export function AppHeader({
                 </div>
 
                 <div className="p-1">
-                  <PopoverItem onClick={() => { logout(); }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-3 sm:py-2 text-red-400 hover:text-red-300">
+                  <PopoverItem onClick={async () => { 
+                    await logout();
+                    window.location.href = '/auth/signin?from=logout';
+                  }} className="flex items-center gap-2 cursor-pointer font-medium text-sm py-3 sm:py-2 text-red-400 hover:text-red-300">
                     <LogOut className="w-4 h-4" />{t('auth.signOut', 'Sign out')}
                   </PopoverItem>
                 </div>
