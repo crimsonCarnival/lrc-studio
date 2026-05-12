@@ -14,6 +14,8 @@ import {
   applyMark,
   detectDuplicateTimestamps,
 } from './editorService';
+import { useFileImport } from './useFileImport';
+import { useDragReorder } from './useDragReorder';
 
 export function useEditor({
   lines,
@@ -35,8 +37,6 @@ export function useEditor({
   const [editingText, setEditingText] = useState('');
   const [editingSecondary, setEditingSecondary] = useState('');
   const [editingTranslation, setEditingTranslation] = useState('');
-  const [dragIndex, setDragIndex] = useState(null);
-  const [dragOverIndex, setDragOverIndex] = useState(null);
   const [selectedLines, setSelectedLines] = useState(new Set());
   // awaitingEndMark is derived: only non-null when the stored context still matches
   const [awaitingEndMarkFor, setAwaitingEndMarkFor] = useState(null); // null | { lineIndex, mode }
@@ -55,7 +55,14 @@ export function useEditor({
 
   const lastClickedRef = useRef(null);
   const listRef = useRef(null);
-  const fileInputRef = useRef(null);
+
+  const { handleFileUpload, handleUrlImport, fileInputRef } = useFileImport({
+    setLines, setEditorMode, setActiveLineIndex, setSyncMode, onImport,
+  });
+
+  const { dragIndex, dragOverIndex, handleDragStart, handleDragOver, handleDragEnd, handleDrop } = useDragReorder({
+    setLines, activeLineIndex, setActiveLineIndex,
+  });
 
   // Stable refs to avoid recreating handleMark/keyboard effects on every frame
   const linesRef = useRef(lines);
@@ -313,81 +320,7 @@ export function useEditor({
     setActiveLineIndex(Math.max(0, updated.findIndex((l) => l.timestamp == null)));
     setSyncMode(true);
   };
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    const ext = file.name.split('.').pop()?.toLowerCase();
-    if (!['lrc', 'srt', 'txt'].includes(ext)) {
-      toast.error(t('import.unsupportedFormat') || 'Unsupported file type. Use .lrc, .srt, or .txt files.');
-      e.target.value = '';
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error(t('import.tooLarge') || 'File too large (max 5 MB)');
-      e.target.value = '';
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        const { lines: parsed } = await lyrics.parse(evt.target.result, file.name);
-        if (parsed.length > 0) {
-          setLines(parsed);
-          {
-            const isSrt = file.name.toLowerCase().endsWith('.srt');
-            const hasWords = !isSrt && parsed.some(l => l.words?.length > 0);
-            setEditorMode(isSrt ? 'srt' : hasWords ? 'words' : 'lrc');
-          }
-          setActiveLineIndex(Math.max(0, parsed.findIndex((l) => l.timestamp == null)));
-          setSyncMode(true);
-          toast.success(t('import.success', { count: parsed.length }) || `Imported ${parsed.length} lines`);
-          onImport?.();
-        } else {
-          toast.error(t('import.noLines') || 'No lyrics found in file');
-        }
-      } catch (err) {
-        console.error('Failed to parse lyrics file', err);
-        toast.error(t('import.failed') || 'Failed to parse lyrics file');
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
-
-  const handleUrlImport = async (url) => {
-    let parsedUrl;
-    try {
-      parsedUrl = new URL(url);
-      if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error();
-    } catch {
-      return { error: t('import.invalidUrl') || 'Invalid URL. Use http:// or https://' };
-    }
-    try {
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const text = await resp.text();
-      const filename = parsedUrl.pathname.split('/').pop() || 'lyrics.lrc';
-      const { lines: parsed } = await lyrics.parse(text, filename);
-      if (parsed.length === 0) {
-        return { error: t('import.noLines') || 'No lyrics found in file' };
-      }
-      setLines(parsed);
-      {
-        const isSrt = filename.toLowerCase().endsWith('.srt');
-        const hasWords = !isSrt && parsed.some(l => l.words?.length > 0);
-        setEditorMode(isSrt ? 'srt' : hasWords ? 'words' : 'lrc');
-      }
-      setActiveLineIndex(Math.max(0, parsed.findIndex((l) => l.timestamp == null)));
-      setSyncMode(true);
-      toast.success(t('import.success', { count: parsed.length }) || `Imported ${parsed.length} lines`);
-      onImport?.();
-      return { success: true };
-    } catch {
-      return { error: t('import.fetchError') || 'Failed to fetch. The server may not allow cross-origin requests.' };
-    }
-  };
 
   // ——— Timestamp operations ———
 
@@ -777,58 +710,6 @@ export function useEditor({
     },
     [setLines],
   );
-
-  // ——— Drag-to-reorder ———
-
-  const handleDragStart = (e, index) => {
-    setDragIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', index);
-  };
-
-  const handleDragOver = (e, index) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverIndex(index);
-  };
-
-  const handleDragEnd = () => {
-    setDragIndex(null);
-    setDragOverIndex(null);
-  };
-
-  const handleDrop = (e, dropIndex) => {
-    e.preventDefault();
-    if (dragIndex == null || dragIndex === dropIndex) return;
-    setLines((prev) => {
-      // Extract timestamps in their current order to preserve them at these indices
-      const timestamps = prev.map(l => ({
-        timestamp: l.timestamp,
-        endTime: l.endTime
-      }));
-
-      // Reorder the line objects themselves
-      const updated = [...prev];
-      const [moved] = updated.splice(dragIndex, 1);
-      updated.splice(dropIndex, 0, moved);
-
-      // Re-apply the original timestamps to the new line order
-      return updated.map((line, i) => ({
-        ...line,
-        timestamp: timestamps[i].timestamp,
-        endTime: timestamps[i].endTime
-      }));
-    });
-    if (activeLineIndex === dragIndex) {
-      setActiveLineIndex(dropIndex);
-    } else if (dragIndex < activeLineIndex && dropIndex >= activeLineIndex) {
-      setActiveLineIndex(activeLineIndex - 1);
-    } else if (dragIndex > activeLineIndex && dropIndex <= activeLineIndex) {
-      setActiveLineIndex(activeLineIndex + 1);
-    }
-    setDragIndex(null);
-    setDragOverIndex(null);
-  };
 
   // ——— Global offset ———
 
