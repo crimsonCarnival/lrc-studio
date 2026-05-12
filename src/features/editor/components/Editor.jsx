@@ -1,5 +1,6 @@
 import { useMemo, useCallback, useState, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { useTranslation } from 'react-i18next';
 import { useEditor } from '@features/editor/hooks/useEditor';
 import EditorToolbar from './EditorToolbar';
 import EditorPasteArea from './EditorPasteArea';
@@ -37,6 +38,7 @@ export default function Editor({
   registerAfterSave,
 }) {
   "use no memo";
+  const { t } = useTranslation();
   const {
     rawText,
     setRawText,
@@ -268,18 +270,18 @@ export default function Editor({
       <ActionDrawer
         isOpen={activeDrawer !== null}
         onClose={() => setActiveDrawer(null)}
-        title={activeDrawer === 'word' 
-          ? (activeWordMenuData.word?.word ? `Word: ${activeWordMenuData.word.word}` : 'Word Actions')
+        title={activeDrawer === 'word'
+          ? (activeWordMenuData.word?.word ? t('editor.wordDrawerTitle', { word: activeWordMenuData.word.word }) : t('editor.wordDrawerTitleNoWord'))
           : activeDrawer === 'line'
-            ? `Line ${activeLineMenuData.lineIndex + 1}`
-            : `Selection: ${selectedLines.size} lines`
+            ? t('editor.lineDrawerTitle', { n: activeLineMenuData.lineIndex + 1 })
+            : t('editor.selectionDrawerTitle', { n: selectedLines.size })
         }
       >
         {activeDrawer === 'word' && (
           <>
             <DrawerItem
               icon={Play}
-              label={activeWordMenuData.word?.time != null ? `Jump to ${formatTime(activeWordMenuData.word.time)}` : 'Jump to Word'}
+              label={activeWordMenuData.word?.time != null ? t('editor.jumpToTime', { time: formatTime(activeWordMenuData.word.time) }) : t('editor.jumpToWord')}
               onClick={() => {
                 if (activeWordMenuData.word?.time != null && playerRef?.current?.seek) {
                   playerRef.current.seek(activeWordMenuData.word.time);
@@ -292,7 +294,7 @@ export default function Editor({
             {activeWordMenuData.word?.time != null && (
               <DrawerItem
                 icon={X}
-                label="Clear Timestamp"
+                label={t('editor.clearTimestamp')}
                 variant="danger"
                 onClick={() => {
                   handleClearWordTimestamp(activeWordMenuData.lineIndex, activeWordMenuData.wordIndex, activeWordMenuData.isSecondary ? 'secondaryWords' : 'words');
@@ -304,11 +306,11 @@ export default function Editor({
             {hasCJK(activeWordMenuData.word?.word || '') && (
               <DrawerItem
                 icon={Pencil}
-                label={activeWordMenuData.word?.reading ? "Edit Reading" : "Add Reading"}
+                label={activeWordMenuData.word?.reading ? t('editor.editReading') : t('editor.addReading')}
                 onClick={() => {
                   setActiveDrawer(null);
                   const currentReading = activeWordMenuData.word?.reading || '';
-                  const newReading = window.prompt("Enter reading (furigana):", currentReading);
+                  const newReading = window.prompt(t('editor.enterReadingPrompt'), currentReading);
                   if (newReading !== null) {
                     handleSetWordReading(activeWordMenuData.lineIndex, activeWordMenuData.wordIndex, newReading);
                   }
@@ -322,7 +324,7 @@ export default function Editor({
           <>
             <DrawerItem
               icon={Play}
-              label={activeLineMenuData.line?.timestamp != null ? `Jump to ${formatTime(activeLineMenuData.line.timestamp)}` : 'Jump to Line'}
+              label={activeLineMenuData.line?.timestamp != null ? t('editor.jumpToTime', { time: formatTime(activeLineMenuData.line.timestamp) }) : t('editor.jumpToLine')}
               onClick={() => {
                 if (activeLineMenuData.line?.timestamp != null && playerRef?.current?.seek) {
                   playerRef.current.seek(activeLineMenuData.line.timestamp);
@@ -334,7 +336,7 @@ export default function Editor({
             {activeLineMenuData.line?.timestamp != null && (
               <DrawerItem
                 icon={X}
-                label="Clear Timestamp"
+                label={t('editor.clearTimestamp')}
                 variant="danger"
                 onClick={() => {
                   handleClearLine(activeLineMenuData.lineIndex);
@@ -344,7 +346,7 @@ export default function Editor({
             )}
             <DrawerItem
               icon={Trash2}
-              label="Remove Line"
+              label={t('editor.removeLine')}
               variant="danger"
               onClick={() => {
                 handleDeleteLine(activeLineMenuData.lineIndex);
@@ -358,7 +360,7 @@ export default function Editor({
           <>
             <DrawerItem
               icon={X}
-              label="Clear Timestamps"
+              label={t('editor.selection.clearTimestamps')}
               variant="danger"
               onClick={() => {
                 handleBulkClearTimestamps();
@@ -367,7 +369,7 @@ export default function Editor({
             />
             <DrawerItem
               icon={Trash2}
-              label="Delete Selected"
+              label={t('editor.selection.deleteSelected')}
               variant="danger"
               onClick={() => {
                 handleBulkDelete();
@@ -376,7 +378,7 @@ export default function Editor({
             />
             <DrawerItem
               icon={X}
-              label="Deselect All"
+              label={t('editor.selection.deselectAll')}
               onClick={() => {
                 clearSelection();
                 setActiveDrawer(null);
