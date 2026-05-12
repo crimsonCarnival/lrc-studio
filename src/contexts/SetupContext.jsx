@@ -7,6 +7,7 @@ export function SetupProvider({ children }) {
   return <SetupContext.Provider value={{ step, setStep }}>{children}</SetupContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSetupContext() {
   return useContext(SetupContext);
 }
