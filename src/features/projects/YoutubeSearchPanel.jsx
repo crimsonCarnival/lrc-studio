@@ -48,7 +48,7 @@ export default function YoutubeSearchPanel({ onSelect, onClose }) {
       const { results: items } = await youtube.search(term);
       setResults(items || []);
     } catch (err) {
-      setError(err?.response?.data?.error || 'Search failed. Please try again.');
+      setError(err?.response?.data?.error || t('home.ytSearchFailed'));
     } finally {
       setLoading(false);
     }
@@ -111,13 +111,13 @@ export default function YoutubeSearchPanel({ onSelect, onClose }) {
         )}
 
         {!loading && searched && results.length === 0 && !error && (
-          <div className="text-sm text-zinc-500 text-center py-8">No results found. Try a different query.</div>
+          <div className="text-sm text-zinc-500 text-center py-8">{t('home.ytNoResults')}</div>
         )}
 
         {!searched && !loading && (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-zinc-600">
             <YtIcon className="w-10 h-10 text-red-500/30" />
-            <p className="text-sm">Search for a song or paste a YouTube URL above</p>
+            <p className="text-sm">{t('home.ytSearchPrompt')}</p>
           </div>
         )}
 
