@@ -100,6 +100,7 @@ export function useAuth() {
           id: 'session-expired',
           duration: 6000,
         });
+        window.location.href = '/auth?action=signin&from=session-expiration';
       } finally {
         isRefreshingRef.current = false;
       }
@@ -121,7 +122,7 @@ export function useAuth() {
     const cloneProjectId = localStorage.getItem('cloneAfterAuth');
     if (cloneProjectId) {
       localStorage.removeItem('cloneAfterAuth');
-      window.location.href = `/?clone=${cloneProjectId}`;
+      window.location.href = `/share/${cloneProjectId}?clone=1`;
     }
 
     return result;
@@ -142,7 +143,7 @@ export function useAuth() {
     const cloneProjectId = localStorage.getItem('cloneAfterAuth');
     if (cloneProjectId) {
       localStorage.removeItem('cloneAfterAuth');
-      window.location.href = `/?clone=${cloneProjectId}`;
+      window.location.href = `/share/${cloneProjectId}?clone=1`;
     }
 
     return result;
