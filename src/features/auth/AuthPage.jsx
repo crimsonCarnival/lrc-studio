@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import { useTranslation, Trans } from 'react-i18next';
 import { useAuthContext } from '@/contexts/useAuthContext';
 import { Button } from '@ui/button';
 import { Input } from '@ui/input';
 import { Label } from '@ui/label';
 import { Checkbox } from '@ui/checkbox';
-import { Eye, EyeOff, ArrowRight, ArrowLeft, Lightbulb, Loader2, Globe, Check, Music2, FileText, Zap } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, ArrowLeft, Lightbulb, Loader2, Globe, Check, Music2, FileText, Zap, X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverItem, PopoverTrigger } from '@ui/popover';
 import RegistrationBlockedModal from './RegistrationBlockedModal';
 import { translateAuthError } from '@/utils/authErrors';
@@ -139,9 +140,103 @@ function TipFooter({ t, seed }) {
   );
 }
 
+function RedirectMessage({ from, t }) {
+  const [visible, setVisible] = useState(!!from);
+
+  useEffect(() => {
+    if (from) {
+      setVisible(true);
+      const timer = setTimeout(() => setVisible(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [from]);
+
+  if (!from || !visible) return null;
+  
+  let message = '';
+  let variant = 'info';
+  
+  switch(from) {
+    case 'logout':
+      message = t('auth.message.logout', 'You have been signed out successfully.');
+      break;
+    case 'session-expiration':
+      message = t('auth.message.sessionExpired', 'Your session has expired. Please sign in again.');
+      variant = 'warning';
+      break;
+    case 'banned':
+      message = t('auth.message.banned', 'Your account has been restricted. Please contact support.');
+      variant = 'danger';
+      break;
+    case 'unauthorized':
+      message = t('auth.message.unauthorized', 'Please sign in to access this page.');
+      break;
+    default:
+      return null;
+  }
+  
+  return (
+    <div className={`mb-6 p-3 rounded-xl text-xs font-medium flex items-center gap-3 border transition-all duration-500 ${
+      visible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
+    } ${
+      variant === 'warning' ? 'bg-warning/10 border-warning/20 text-warning' :
+      variant === 'danger' ? 'bg-destructive/10 border-destructive/20 text-destructive' :
+      'bg-primary/10 border-primary/20 text-primary'
+    }`}>
+      {variant === 'warning' ? <Lightbulb className="w-4 h-4 shrink-0" /> : <Music2 className="w-4 h-4 shrink-0" />}
+      <div className="flex-1">{message}</div>
+      <button 
+        onClick={() => setVisible(false)}
+        className="p-1 hover:bg-white/5 rounded-md transition-colors opacity-60 hover:opacity-100"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function ContextBanner({ redirect, t }) {
+  if (!redirect) return null;
+  
+  // Decode and clean up the redirect path for display
+  let displayPath = '';
+  try {
+    const decoded = decodeURIComponent(redirect);
+    const url = new URL(decoded, window.location.origin);
+    displayPath = url.pathname;
+    // Special cases for common paths
+    if (displayPath.startsWith('/project/')) {
+      const id = displayPath.split('/').pop();
+      displayPath = id === 'new' ? t('auth.context.newProject', 'New Project') : t('auth.context.project', 'Project');
+    } else if (displayPath === '/library') {
+      displayPath = t('auth.context.library', 'Your Library');
+    } else if (displayPath === '/home') {
+      displayPath = t('auth.context.home', 'Home');
+    }
+  } catch {
+    displayPath = redirect.split('?')[0];
+  }
+
+  return (
+    <div className="mb-6 flex items-center gap-2 px-3 py-2 bg-zinc-800/40 border border-zinc-700/30 rounded-xl animate-fade-in" style={{ animationDelay: '100ms' }}>
+      <div className="w-6 h-6 rounded-lg bg-zinc-900 flex items-center justify-center shrink-0">
+        <ArrowRight className="w-3 h-3 text-zinc-500" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] uppercase tracking-wider font-bold text-zinc-500 leading-none">
+          {t('auth.context.continuingTo', 'Continuing to')}
+        </p>
+        <p className="text-xs font-semibold text-zinc-300 truncate mt-0.5">
+          {displayPath}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Login Step 1 — Identifier ─────────────────────────────────────────────
 
-function LoginIdentifierStep({ t, onNext, onSwitchToRegister }) {
+function LoginIdentifierStep({ t, onNext, onSwitchToRegister, from, redirect, navigate }) {
   const [rememberedIdentifier] = useState(() => {
     try {
       return localStorage.getItem(REMEMBER_ME_KEY) || '';
@@ -185,6 +280,8 @@ function LoginIdentifierStep({ t, onNext, onSwitchToRegister }) {
 
   return (
     <div className="animate-fade-in">
+      <RedirectMessage from={from} t={t} />
+      <ContextBanner redirect={redirect} t={t} />
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-zinc-100 tracking-tight font-sans">
           {rememberedIdentifier ? (
@@ -246,12 +343,29 @@ function LoginIdentifierStep({ t, onNext, onSwitchToRegister }) {
           }
         </Button>
 
-        <p className="text-xs text-zinc-500 text-center">
-          {t('auth.noAccount')}{' '}
-          <button type="button" onClick={onSwitchToRegister} className="text-primary hover:text-primary-dim hover:underline font-semibold transition-colors">
-            {t('auth.register')}
+        <div className="flex flex-col gap-4 mt-2">
+          <p className="text-xs text-zinc-500 text-center">
+            {t('auth.noAccount')}{' '}
+            <button type="button" onClick={onSwitchToRegister} className="text-primary hover:text-primary-dim hover:underline font-semibold transition-colors">
+              {t('auth.register')}
+            </button>
+          </p>
+
+          <div className="flex items-center gap-3 px-8">
+            <div className="flex-1 h-px bg-zinc-800/40" />
+            <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-[0.2em] leading-none">{t('common.or', 'OR')}</span>
+            <div className="flex-1 h-px bg-zinc-800/40" />
+          </div>
+
+          <button 
+            type="button" 
+            onClick={() => navigate('/project/new')} 
+            className="group flex items-center justify-center gap-2 py-1 text-xs font-semibold text-zinc-500 hover:text-primary transition-all duration-300"
+          >
+            <Zap className="w-3.5 h-3.5 text-zinc-600 group-hover:text-primary group-hover:fill-primary/20 transition-all" />
+            {t('auth.guestMode', 'Continue as Guest')}
           </button>
-        </p>
+        </div>
       </form>
     </div>
   );
@@ -362,7 +476,7 @@ function LoginPasswordStep({ t, identifierData, onBack, onLogin, onSuccess }) {
 
 // ─── Register Form ─────────────────────────────────────────────────────────
 
-function RegisterForm({ t, onSwitchToLogin, onRegister, onSuccess }) {
+function RegisterForm({ t, onSwitchToLogin, onRegister, onSuccess, redirect, navigate }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -408,6 +522,7 @@ function RegisterForm({ t, onSwitchToLogin, onRegister, onSuccess }) {
 
   return (
     <div className="animate-fade-in font-sans">
+      <ContextBanner redirect={redirect} t={t} />
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-zinc-100 tracking-tight font-sans">
           <Trans 
@@ -496,12 +611,29 @@ function RegisterForm({ t, onSwitchToLogin, onRegister, onSuccess }) {
           }
         </Button>
 
-        <p className="text-xs text-zinc-500 text-center">
-          {t('auth.hasAccount')}{' '}
-          <button type="button" onClick={onSwitchToLogin} className="text-primary hover:text-primary-dim hover:underline font-semibold transition-colors">
-            {t('auth.login')}
+        <div className="flex flex-col gap-4 mt-4">
+          <p className="text-xs text-zinc-500 text-center">
+            {t('auth.hasAccount')}{' '}
+            <button type="button" onClick={onSwitchToLogin} className="text-primary hover:text-primary-dim hover:underline font-semibold transition-colors">
+              {t('auth.login')}
+            </button>
+          </p>
+
+          <div className="flex items-center gap-3 px-8">
+            <div className="flex-1 h-px bg-zinc-800/40" />
+            <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-[0.2em] leading-none">{t('common.or', 'OR')}</span>
+            <div className="flex-1 h-px bg-zinc-800/40" />
+          </div>
+
+          <button 
+            type="button" 
+            onClick={() => navigate('/project/new')} 
+            className="group flex items-center justify-center gap-2 py-1 text-xs font-semibold text-zinc-500 hover:text-primary transition-all duration-300"
+          >
+            <Zap className="w-3.5 h-3.5 text-zinc-600 group-hover:text-primary group-hover:fill-primary/20 transition-all" />
+            {t('auth.guestMode', 'Continue as Guest')}
           </button>
-        </p>
+        </div>
       </form>
 
       <RegistrationBlockedModal
@@ -518,43 +650,59 @@ function RegisterForm({ t, onSwitchToLogin, onRegister, onSuccess }) {
 export default function AuthPage() {
   const { t, i18n } = useTranslation();
   const { login, register } = useAuthContext();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const { mode } = useParams();
+  const navigate = useNavigate();
   useThemeSync();
-  const action = searchParams.get('action') || 'signin';
+
+  const action = mode || searchParams.get('action') || 'signin';
   const redirect = searchParams.get('redirect') || '';
   usePageTitle();
 
-  // The 'view' state manages internal steps (identifier vs password) 
-  // but respects the top-level 'action' (signin vs signup)
   const [view, setView] = useState(() => {
-    return action === 'signup' ? 'register' : 'login-identifier';
+    return (action === 'signup' || action === 'register') ? 'register' : 'login-identifier';
   });
 
-  const [identifierData, setIdentifierData] = useState(null); // { identifier, username, avatarUrl }
+  const [identifierData, setIdentifierData] = useState(null);
   const [tipSeed] = useState(() => Math.floor(Math.random() * 1000));
 
-  // 1. Sync view state when action changes (e.g. browser back button or direct link)
+  // 1. Force pretty URLs if legacy query params are used
   useEffect(() => {
-    if (action === 'signup') {
+    if (!mode && searchParams.has('action')) {
+      const legacyAction = searchParams.get('action');
+      const targetAction = (legacyAction === 'signup' || legacyAction === 'register') ? 'signup' : 'signin';
+      const redirectParam = searchParams.get('redirect');
+      const fromParam = searchParams.get('from');
+      
+      const newParams = new URLSearchParams();
+      if (redirectParam) newParams.set('redirect', redirectParam);
+      if (fromParam) newParams.set('from', fromParam);
+      
+      const suffix = newParams.toString() ? `?${newParams.toString()}` : '';
+      navigate(`/auth/${targetAction}${suffix}`, { replace: true });
+    }
+  }, [mode, searchParams, navigate]);
+
+  // 2. Sync view state when action changes (e.g. browser back button or direct link)
+  useEffect(() => {
+    if (action === 'signup' || action === 'register') {
       setView('register');
-    } else if (action === 'signin' || action === 'sign-in') {
-      // If we are already in the password step, don't reset to identifier 
-      // unless we actually switched from signup
+    } else {
       setView(prev => prev === 'register' ? 'login-identifier' : prev);
     }
   }, [action]);
 
   // 2. Sync URL when view state changes manually (e.g. switchView calls)
   useEffect(() => {
-    const currentAction = action;
     const targetAction = view === 'register' ? 'signup' : 'signin';
+    const isMatched = action === targetAction || (action === 'sign-in' && targetAction === 'signin');
     
-    if (currentAction !== targetAction && !(currentAction === 'sign-in' && targetAction === 'signin')) {
-      const newParams = { action: targetAction };
-      if (redirect) newParams.redirect = redirect;
-      setSearchParams(newParams, { replace: true });
+    if (!isMatched) {
+      const currentRedirect = searchParams.get('redirect');
+      const redirectSuffix = currentRedirect ? `?redirect=${encodeURIComponent(currentRedirect)}` : '';
+      navigate(`/auth/${targetAction}${redirectSuffix}`, { replace: true });
     }
-  }, [view, action, setSearchParams, redirect]);
+  }, [view, action, navigate, searchParams]);
 
   const handleIdentifierNext = useCallback((data) => {
     setIdentifierData(data);
@@ -570,10 +718,11 @@ export default function AuthPage() {
     setView(newView);
     setIdentifierData(null);
     // Force immediate URL update to be snappy
-    const newParams = { action: newView === 'register' ? 'signup' : 'signin' };
-    if (redirect) newParams.redirect = redirect;
-    setSearchParams(newParams, { replace: true });
-  }, [setSearchParams, redirect]);
+    const targetAction = newView === 'register' ? 'signup' : 'signin';
+    const currentRedirect = searchParams.get('redirect');
+    const redirectSuffix = currentRedirect ? `?redirect=${encodeURIComponent(currentRedirect)}` : '';
+    navigate(`/auth/${targetAction}${redirectSuffix}`, { replace: true });
+  }, [navigate, searchParams]);
 
   const handleAuthSuccess = useCallback(() => {
     const redirectTo = searchParams.get('redirect');
@@ -618,24 +767,44 @@ export default function AuthPage() {
         </div>
 
         {/* Hero content */}
-        <div className="relative flex-1 flex flex-col justify-center py-10">
-          <h2 className="text-3xl xl:text-4xl font-bold text-zinc-100 leading-snug tracking-tight font-heading mb-8">
+        <div className="relative flex-1 flex flex-col justify-center py-20">
+          <motion.h2 
+            initial={{ opacity: 0, x: -40 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="text-4xl xl:text-5xl font-bold text-zinc-100 leading-tight tracking-tight font-heading mb-10"
+          >
             {t('auth.tagline', 'Sync lyrics to music, your way')}
-          </h2>
+          </motion.h2>
 
-          <ul className="flex flex-col gap-5">
+          <motion.ul 
+            initial="hidden"
+            animate="visible"
+            variants={{
+              visible: { transition: { staggerChildren: 0.12, delayChildren: 0.2 } }
+            }}
+            className="flex flex-col gap-6"
+          >
             {features.map(({ icon: Icon, key, descKey }) => (
-              <li key={key} className="flex items-start gap-3.5">
-                <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
-                  <Icon className="w-4 h-4 text-primary" />
+              <motion.li 
+                key={key} 
+                variants={{
+                  hidden: { opacity: 0, x: -30 },
+                  visible: { opacity: 1, x: 0 }
+                }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="flex items-start gap-4"
+              >
+                <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5 shadow-lg shadow-primary/5">
+                  <Icon className="w-4.5 h-4.5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-zinc-200">{t(`auth.${key}`)}</p>
-                  <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{t(`auth.${descKey}`)}</p>
+                  <p className="text-base font-semibold text-zinc-100 tracking-tight">{t(`auth.${key}`)}</p>
+                  <p className="text-xs text-zinc-500 mt-1 leading-relaxed max-w-[280px]">{t(`auth.${descKey}`)}</p>
                 </div>
-              </li>
+              </motion.li>
             ))}
-          </ul>
+          </motion.ul>
         </div>
 
         {/* Footer */}
@@ -645,22 +814,31 @@ export default function AuthPage() {
       </div>
 
       {/* ── Right form panel ────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-8 py-10 relative">
+      <div className="flex-1 flex flex-col items-center justify-center px-4 sm:px-8 py-20 relative">
 
         {/* Mobile-only logo */}
-        <div className="flex flex-col items-center mb-8 lg:hidden">
-          <div className="w-12 h-12 mb-2">
+        <div className="flex flex-col items-center mb-10 lg:hidden">
+          <motion.div 
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-14 h-14 mb-3"
+          >
             <img
               src="https://res.cloudinary.com/dzjid2tos/image/upload/v1778106770/lrc-logo_dkumwz.png"
               alt="LRC Studio"
               className="w-full h-full object-contain drop-shadow-[0_0_12px_rgba(29,185,84,0.3)]"
             />
-          </div>
-          <p className="text-sm font-bold text-zinc-100 font-heading">{t('app.name')}</p>
+          </motion.div>
+          <p className="text-base font-bold text-zinc-100 font-heading">{t('app.name')}</p>
           <p className="text-xs text-zinc-600 mt-0.5">{t('auth.tagline')}</p>
         </div>
 
-        <div className="w-full max-w-[400px]">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="w-full max-w-[400px]"
+        >
           {/* Card */}
           <div className="bg-zinc-900/95 backdrop-blur-xl border border-zinc-700/40 rounded-3xl shadow-2xl shadow-black/60 p-7 sm:p-8">
             {view === 'login-identifier' && (
@@ -668,6 +846,9 @@ export default function AuthPage() {
                 t={t}
                 onNext={handleIdentifierNext}
                 onSwitchToRegister={() => switchView('register')}
+                from={searchParams.get('from')}
+                redirect={redirect}
+                navigate={navigate}
               />
             )}
 
@@ -687,6 +868,8 @@ export default function AuthPage() {
                 onSwitchToLogin={() => switchView('login-identifier')}
                 onRegister={register}
                 onSuccess={handleAuthSuccess}
+                redirect={redirect}
+                navigate={navigate}
               />
             )}
           </div>
@@ -705,7 +888,7 @@ export default function AuthPage() {
               />
             </p>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );
