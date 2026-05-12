@@ -158,7 +158,10 @@ export default function PreviewLine({
     </div>
   );
 
-  return hasMedia ? <Tip content={isLocked ? t('preview.locked') : t('preview.hoverHint')}>{inner}</Tip> : inner;
+  if (!hasMedia) return inner;
+  // Return without Tip wrapper — TooltipTrigger asChild can override onClick.
+  // The hover hint is decorative; click-to-seek correctness takes priority.
+  return inner;
 }
 
 // ——— CJK detection for spaceless scripts ———
@@ -252,7 +255,7 @@ function renderMainTrack({ line, isActive, isPast, hasWordTimestamps, playbackPo
           const addSpace = needsSpaceAfter(w.word, nextWord?.word);
 
           const wordContent = w.reading && isKanjiWord(w.word) && showFuriganaInPreview
-            ? <ruby>{w.word}<rp>(</rp><rt style={{ paddingBottom: '2px' }}>{fmtReading(w.reading)}</rt><rp>)</rp></ruby>
+            ? <ruby>{w.word}<rp>(</rp><rt style={{ paddingBottom: '2px', marginInline: '0.25em' }}>{fmtReading(w.reading)}</rt><rp>)</rp></ruby>
             : w.word;
 
           return (
@@ -380,7 +383,7 @@ function renderParsedSecondary(text) {
   const { segments } = parseRubyMarkup(text);
   return segments.map((seg, i) =>
     seg.reading ? (
-      <ruby key={i}>{seg.text}<rp>(</rp><rt style={{ paddingBottom: '2px' }}>{seg.reading}</rt><rp>)</rp></ruby>
+      <ruby key={i}>{seg.text}<rp>(</rp><rt style={{ paddingBottom: '2px', marginInline: '0.25em' }}>{seg.reading}</rt><rp>)</rp></ruby>
     ) : (
       <React.Fragment key={i}>{seg.text}</React.Fragment>
     )
@@ -403,7 +406,7 @@ function renderLineWithReadings(line, fmtReading, showFurigana = true) {
     if (w.reading && isKanjiWord(w.word) && showFurigana) {
       return (
         <React.Fragment key={i}>
-          <ruby>{w.word}<rp>(</rp><rt style={{ paddingBottom: '2px' }}>{fmtReading(w.reading)}</rt><rp>)</rp></ruby>
+          <ruby>{w.word}<rp>(</rp><rt style={{ paddingBottom: '2px', marginInline: '0.25em' }}>{fmtReading(w.reading)}</rt><rp>)</rp></ruby>
           {addSpace ? ' ' : null}
         </React.Fragment>
       );
