@@ -130,7 +130,7 @@ const WaveformDisplay = ({
     ws.load(localUrl);
 
     return () => {
-      ws.destroy();
+      try { ws.destroy(); } catch (e) { /* ignore abort errors on unmount */ }
       setIsReady(false);
     };
   }, [showWaveform, localUrl, audioRef]);
