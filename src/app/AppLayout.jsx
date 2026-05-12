@@ -21,6 +21,7 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
     handleTimeUpdate, handleDurationChange, handleMediaChange, handleYtUrlChange,
     handleCloudinaryUpload, restoredYtUrl, restoredCloudinaryUpload, restoredPosition,
     restoredSpeed, hasUnsavedChanges, activeProjectId, projectMetadata, setProjectMetadata,
+    forkedFrom,
     isProjectLoading, hasMedia, lines, activeLineIndex, playbackPosition, syncMode, pendingProject,
     setIsPlaying, setPlaybackSpeed, setProjectSpotifyTrackId,
   } = appState;
@@ -63,9 +64,11 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
         lines={lines}
         mediaTitle={mediaTitle}
         setMediaTitle={setMediaTitle}
+        handleManualSave={handleManualSave}
         triggerImportSave={triggerImportSave}
         hasUnsavedChanges={hasUnsavedChanges}
         activeProjectId={activeProjectId}
+        forkedFrom={forkedFrom}
         setShowSettings={setShowSettings}
         setShowKeyboardHelp={setShowKeyboardHelp}
         focusMode={focusMode}
