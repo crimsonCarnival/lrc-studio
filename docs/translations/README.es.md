@@ -231,6 +231,29 @@ La aplicación es altamente personalizable a través del modal de Configuración
 
 ## Empezando
 
+### Uso de Docker (Recomendado para una configuración fácil)
+
+> [!IMPORTANT]
+> **Asegúrate de que Docker Desktop esté funcionando** antes de ejecutar estos comandos. Si estás en Windows, asegúrate de que el motor de Docker se haya inicializado por completo.
+
+Si tienes Docker y Docker Compose instalados, puedes iniciar toda la pila con un solo comando:
+
+```bash
+docker-compose up -d --build
+```
+
+Esto hará lo siguiente:
+1. Compilar el cliente (Nginx + archivos estáticos)
+2. Compilar el servidor (Node.js)
+3. Iniciar una instancia de MongoDB
+4. Conectar todo en conjunto
+
+La aplicación estará disponible en [http://localhost](http://localhost).
+
+---
+
+### Instalación Manual
+
 ### Prerrequisitos
 
 - Node.js v18 o superior
@@ -245,26 +268,47 @@ La aplicación es altamente personalizable a través del modal de Configuración
    cd lrc-studio
    ```
 
-2. Instala las dependencias:
+2. Instala las dependencias tanto para el cliente como para el servidor:
 
    ```bash
+   # Instalar dependencias del cliente
+   cd client
+   npm install
+
+   # En una terminal separada, instalar dependencias del servidor
+   cd ../server
    npm install
    ```
 
 3. Configura el entorno:
 
+   **Cliente (`client/.env`):**
    ```bash
    cp .env.example .env
-   # Edita .env y establece VITE_API_URL hacia tu servidor backend
+   # Asegúrate de que VITE_API_URL esté establecido en http://localhost:3000 para desarrollo local
    ```
 
-4. Inicia el servidor de desarrollo:
-
+   **Servidor (`server/.env`):**
    ```bash
+   cp .env.example .env
+   # Establece tu MONGODB_URI y otras claves requeridas
+   ```
+
+4. Inicia los servidores de desarrollo:
+
+   **Servidor:**
+   ```bash
+   cd server
    npm run dev
    ```
 
-5. Abre [http://localhost:5173](http://localhost:5173) en tu navegador.
+   **Cliente:**
+   ```bash
+   cd client
+   npm run dev
+   ```
+
+5. Abre [http://127.0.0.1:5173](http://127.0.0.1:5173) en tu navegador.
 
 ### Scripts Disponibles
 
