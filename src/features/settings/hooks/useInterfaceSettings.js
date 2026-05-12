@@ -32,6 +32,9 @@ export function useInterfaceSettings(updateSetting) {
   const handleTranslationLayoutChange = (e) =>
     updateSetting('editor.display.translationLayout', e.target.value);
 
+  const handleToastPositionChange = (e) =>
+    updateSetting('interface.toastPosition', e.target.value);
+
   return {
     handleLanguageChange,
     handleThemeChange,
@@ -43,5 +46,6 @@ export function useInterfaceSettings(updateSetting) {
     handleSpacingChange,
     handleLanguageLayoutChange,
     handleTranslationLayoutChange,
+    handleToastPositionChange,
   };
 }
