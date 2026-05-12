@@ -5,17 +5,18 @@ import { Input } from '@ui/input';
 import { Textarea } from '@ui/textarea';
 import { Label } from '@ui/label';
 import { Badge } from '@ui/badge';
-import { X, Sparkles, Image as ImageIcon, Upload, Loader2 } from 'lucide-react';
+import { X, Sparkles, Image as ImageIcon, Upload, Loader2, Video, Music2 } from 'lucide-react';
 
 
-export default function ProjectSetupModal({ 
-  isOpen, 
-  onClose, 
+export default function ProjectSetupModal({
+  isOpen,
+  onClose,
   onConfirm,
   initialName = '',
   initialDescription = '',
   initialTags = [],
-  isEditing = false
+  isEditing = false,
+  sourceInfo = null
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
@@ -70,16 +71,57 @@ export default function ProjectSetupModal({
     }
   };
 
-
-
   const handleSubmit = (e) => {
     e.preventDefault();
     const finalTags = tagInput.trim() ? [...tags, tagInput.trim()] : tags;
-    onConfirm({ 
-      name: name.trim(), 
-      description: description.trim(), 
+    onConfirm({
+      name: name.trim(),
+      description: description.trim(),
       tags: finalTags,
     });
+  };
+
+  const renderSourceInfo = () => {
+    if (!sourceInfo) return null;
+    const { ytUrl, cloudinary, spotifyId, title } = sourceInfo;
+
+    let sourceIcon = <Music2 className="w-4 h-4" />;
+    let sourceLabel = t('setup.audioSource');
+    let sourceValue = title || initialName;
+
+    if (ytUrl) {
+      sourceIcon = <Video className="w-4 h-4 text-red-500" />;
+      sourceLabel = t('setup.youtubeVideo');
+      // title is the resolved media title (e.g. fetched from YouTube oEmbed).
+      // Fall back to the raw URL so the field is never blank.
+      sourceValue = title || initialName || ytUrl;
+    } else if (spotifyId) {
+      sourceIcon = <Music2 className="w-4 h-4 text-primary" />;
+      sourceLabel = t('setup.spotifyTrack');
+      // title is populated once the Spotify metadata resolves.
+      // Fall back to the track ID so the field is never blank.
+      sourceValue = title || initialName || spotifyId;
+    } else if (cloudinary) {
+      sourceIcon = <Upload className="w-4 h-4 text-blue-400" />;
+      sourceLabel = t('setup.cloudUpload');
+      sourceValue = cloudinary.title || cloudinary.fileName || title || initialName;
+    }
+
+    return (
+      <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-800/40 border border-zinc-700/50 mb-2">
+        <div className="w-8 h-8 rounded-lg bg-zinc-900 flex items-center justify-center border border-zinc-700/60 shadow-sm">
+          {sourceIcon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider leading-none mb-1">
+            {sourceLabel}
+          </p>
+          <p className="text-sm font-medium text-zinc-200 truncate">
+            {sourceValue}
+          </p>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -114,7 +156,8 @@ export default function ProjectSetupModal({
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5">
+          <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-5 pt-4">
+            {renderSourceInfo()}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="project-name" className="text-xs font-semibold text-zinc-300">
                 {t('setup.projectName')}
