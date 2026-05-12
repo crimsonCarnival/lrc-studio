@@ -54,7 +54,7 @@ export default function useLocalAudio({
           if (uploadAbortRef.current) return;
           try {
             // Immediately persist to database before considering it successful
-            const { upload } = await uploads.saveMedia({
+            const upload = await uploads.saveMedia({
               source: 'cloudinary',
               cloudinaryUrl: result.secure_url,
               publicId: result.public_id,
@@ -62,6 +62,17 @@ export default function useLocalAudio({
               title: file.name.replace(/\.[^/.]+$/, ''),
               duration: result.duration || null,
             });
+            if (!upload) {
+              console.warn('Upload not persisted - user may not be authenticated');
+              // Still use the audio even without persisting to DB
+              onCloudinaryUpload?.({
+                cloudinaryUrl: result.secure_url,
+                publicId: result.public_id,
+                fileName: file.name,
+                duration: result.duration,
+              });
+              return;
+            }
             if (uploadAbortRef.current) return;
             onCloudinaryUpload?.({
               id: upload.id,
@@ -73,7 +84,13 @@ export default function useLocalAudio({
           } catch (err) {
             if (uploadAbortRef.current) return;
             console.error('Failed to persist upload to database:', err);
-            toast.error(t('upload.persistFailed') || 'Failed to save media to database');
+            // Don't show error toast - still allow playback from URL
+            onCloudinaryUpload?.({
+              cloudinaryUrl: result.secure_url,
+              publicId: result.public_id,
+              fileName: file.name,
+              duration: result.duration,
+            });
           }
         } catch (err) {
           if (uploadAbortRef.current) return;
