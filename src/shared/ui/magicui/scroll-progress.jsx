@@ -1,4 +1,5 @@
 ﻿import { cn } from '@/shared/utils/utils';
+// eslint-disable-next-line no-unused-vars
 import { motion, useMotionValue, useSpring } from 'framer-motion';
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
