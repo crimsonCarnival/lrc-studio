@@ -15,7 +15,7 @@ import { AppLayout } from './AppLayout';
 import { AppRouter } from './AppRouter';
 
 function AppInner() {
-  const { t } = useTranslation();
+  useTranslation();
   const { user, logout } = useAuthContext();
   const navigate = useNavigate();
   const routerLocation = useLocation();
