@@ -46,11 +46,11 @@ export default function GuestProjectSaveGate() {
     // does in development: mount → cleanup → mount).
     let cancelled = false;
     attemptRef.current = 0;
-    setDisplayAttempt(0);
 
     const run = async () => {
       const record = await getPendingProject();
       if (cancelled) return;
+      setDisplayAttempt(0);
 
       if (!record) {
         await clearPendingProject();
