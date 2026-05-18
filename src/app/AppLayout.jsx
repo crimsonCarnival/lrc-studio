@@ -17,7 +17,7 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
   const {
     mediaTitle, setMediaTitle, showKeyboardHelp, setShowKeyboardHelp,
     showSettings, setShowSettings, isDraggingFile, playerRef,
-    handleManualSave, triggerImportSave, handleDiscardProject, handleRestoreProject,
+    handleManualSave, triggerImportSave, handleDiscardProject, handleRestoreProject, buildProjectPayload,
     handleTimeUpdate, handleDurationChange, handleMediaChange, handleYtUrlChange,
     handleCloudinaryUpload, restoredYtUrl, restoredCloudinaryUpload, restoredPosition,
     restoredSpeed, hasUnsavedChanges, activeProjectId, projectMetadata, setProjectMetadata,
@@ -31,9 +31,16 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
 
   const isSetupPage = location.pathname === '/project/new';
 
-  const handleProjectConfirm = useCallback(({ name, description, tags }) => {
+  const handleProjectConfirm = useCallback(({ name, description, tags, songName, songArtist, songAlbum, songYear }) => {
     const newTitle = name || mediaTitle || '';
-    const newMetadata = { description: description || '', tags: tags || [] };
+    const newMetadata = { 
+      description: description || '', 
+      tags: tags || [],
+      songName: songName || '',
+      songArtist: songArtist || '',
+      songAlbum: songAlbum || '',
+      songYear: songYear || ''
+    };
     setMediaTitle(newTitle);
     setProjectMetadata(newMetadata);
     setShowNamingModal(false);
@@ -49,8 +56,8 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
       {isDraggingFile && (
         <div className="fixed inset-0 z-overlay flex items-center justify-center bg-black/80 backdrop-blur-sm pointer-events-none transition-all">
           <div className="flex flex-col items-center gap-4 text-primary animate-bounce">
-            <UploadCloud className="w-20 h-20" />
-            <h2 className="text-3xl font-bold tracking-tight text-center px-4">
+            <UploadCloud className="size-20" />
+            <h2 className="text-3xl font-semibold tracking-tight text-center px-4">
               {t('player.dropAudio') || 'Drop your audio or lyrics file here'}
             </h2>
           </div>
@@ -64,8 +71,8 @@ export function AppLayout({ children, user, logout, appState, settingsState, lay
         lines={lines}
         mediaTitle={mediaTitle}
         setMediaTitle={setMediaTitle}
-        handleManualSave={handleManualSave}
         triggerImportSave={triggerImportSave}
+        buildProjectPayload={buildProjectPayload}
         hasUnsavedChanges={hasUnsavedChanges}
         activeProjectId={activeProjectId}
         forkedFrom={forkedFrom}
